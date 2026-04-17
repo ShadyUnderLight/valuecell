@@ -1,6 +1,6 @@
 """Model-related API schemas."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -112,3 +112,29 @@ class CheckModelResponse(BaseModel):
         description="Status label like 'valid_config', 'reachable', 'timeout', 'request_failed'",
     )
     error: Optional[str] = Field(None, description="Error message if any")
+
+
+class CatalogModelItem(BaseModel):
+    canonical_ref: str = Field(..., description="Canonical catalog ref")
+    provider: str = Field(..., description="Model provider")
+    native_model_id: str = Field(..., description="Provider-native model id")
+    display_name: str = Field(..., description="Display name")
+    status: Optional[str] = Field(None, description="Catalog status")
+    visibility: Optional[str] = Field(None, description="Catalog visibility")
+
+
+class ResolveModelRequest(BaseModel):
+    model: str = Field(..., description="Model identifier to resolve")
+    provider: Optional[str] = Field(
+        None, description="Optional provider hint to narrow resolution"
+    )
+
+
+class ResolveModelResponse(BaseModel):
+    canonical_ref: str = Field(..., description="Canonical catalog ref")
+    provider: str = Field(..., description="Resolved provider")
+    native_model_id: str = Field(..., description="Resolved provider-native model id")
+    display_name: str = Field(..., description="Resolved display name")
+    match_type: Literal["canonical_ref", "alias", "native_id", "legacy_id"] = Field(
+        ..., description="How the resolver matched the input"
+    )

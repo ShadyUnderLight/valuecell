@@ -10,6 +10,8 @@ from fastapi import APIRouter, HTTPException, Query
 from valuecell.config.constants import CONFIG_DIR
 from valuecell.config.loader import get_config_loader
 from valuecell.config.manager import get_config_manager
+from valuecell.config.model_catalog import ModelCatalogEntry
+from valuecell.config.model_resolver import ModelResolver
 from valuecell.utils.env import get_system_env_path
 
 from ..schemas import SuccessResponse
@@ -17,11 +19,14 @@ from ..schemas.model import (
     AddModelRequest,
     CheckModelRequest,
     CheckModelResponse,
+    CatalogModelItem,
     ModelItem,
     ModelProviderSummary,
     ProviderDetailData,
     ProviderModelEntry,
     ProviderUpdateRequest,
+    ResolveModelRequest,
+    ResolveModelResponse,
     SetDefaultModelRequest,
     SetDefaultProviderRequest,
 )
@@ -35,6 +40,12 @@ try:
 except Exception:  # pragma: no cover - constants may not exist in minimal env
     DEFAULT_MODEL_PROVIDER = "openrouter"
     DEFAULT_AGENT_MODEL = "gpt-4o"
+
+
+def get_model_resolver(config_dir: Path | None = None) -> ModelResolver:
+    """Create a model resolver backed by the configured catalog and provider YAMLs."""
+    resolved_config_dir = CONFIG_DIR if config_dir is None else config_dir
+    return ModelResolver.from_config(config_dir=resolved_config_dir)
 
 
 def create_models_router() -> APIRouter:
@@ -137,6 +148,144 @@ def create_models_router() -> APIRouter:
             "ollama": None,
         }
         return mapping.get(provider)
+
+    def _to_catalog_item(entry: ModelCatalogEntry) -> CatalogModelItem:
+        return CatalogModelItem(
+            canonical_ref=entry.ref,
+            provider=entry.provider,
+            native_model_id=entry.native_model_id,
+            display_name=entry.display_name,
+            status=entry.status,
+            visibility=entry.visibility,
+        )
+
+    def _contains_query(entry, query: str) -> bool:
+        lowered_query = query.lower()
+        if lowered_query in entry.ref.lower():
+            return True
+        if lowered_query in entry.provider.lower():
+            return True
+        if lowered_query in entry.native_model_id.lower():
+            return True
+        if lowered_query in entry.display_name.lower():
+            return True
+
+        for alias in entry.aliases:
+            if lowered_query in alias.lower():
+                return True
+        return False
+
+    @router.get(
+        "/catalog",
+        response_model=SuccessResponse[List[CatalogModelItem]],
+        summary="List model catalog entries",
+        description=(
+            "List canonical model catalog entries. "
+            "Supports optional filtering by provider, status, visibility, and query."
+        ),
+    )
+    async def list_model_catalog(
+        provider: str | None = Query(
+            default=None, description="Filter by provider (case-insensitive)"
+        ),
+        status: str | None = Query(
+            default=None, description="Filter by catalog status (case-insensitive)"
+        ),
+        visibility: str | None = Query(
+            default=None, description="Filter by catalog visibility (case-insensitive)"
+        ),
+        query: str | None = Query(
+            default=None,
+            description=(
+                "Filter by free-text query across ref, provider, native model id, "
+                "display name, and aliases"
+            ),
+        ),
+    ) -> SuccessResponse[List[CatalogModelItem]]:
+        try:
+            resolver = get_model_resolver()
+            entries = list(resolver.catalog.entries)
+
+            normalized_provider = provider.strip().lower() if provider else None
+            normalized_status = status.strip().lower() if status else None
+            normalized_visibility = visibility.strip().lower() if visibility else None
+            normalized_query = query.strip().lower() if query else None
+
+            if normalized_provider:
+                entries = [
+                    entry
+                    for entry in entries
+                    if entry.provider.lower() == normalized_provider
+                ]
+            if normalized_status:
+                entries = [
+                    entry
+                    for entry in entries
+                    if (entry.status or "").strip().lower() == normalized_status
+                ]
+            if normalized_visibility:
+                entries = [
+                    entry
+                    for entry in entries
+                    if (entry.visibility or "").strip().lower() == normalized_visibility
+                ]
+            if normalized_query:
+                entries = [
+                    entry
+                    for entry in entries
+                    if _contains_query(entry=entry, query=normalized_query)
+                ]
+
+            data = [_to_catalog_item(entry) for entry in entries]
+            return SuccessResponse.create(data=data, msg=f"Retrieved {len(data)} models")
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to list model catalog: {e}"
+            )
+
+    @router.post(
+        "/resolve",
+        response_model=SuccessResponse[ResolveModelResponse],
+        summary="Resolve model identifier",
+        description=(
+            "Resolve canonical refs, aliases, native model ids, or legacy ids "
+            "into a canonical catalog model entry."
+        ),
+    )
+    async def resolve_model(
+        payload: ResolveModelRequest,
+    ) -> SuccessResponse[ResolveModelResponse]:
+        try:
+            resolver = get_model_resolver()
+            resolution = resolver.resolve(
+                identifier=payload.model, provider=payload.provider
+            )
+
+            if resolution is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        f"Model '{payload.model}' could not be resolved"
+                        if payload.provider is None
+                        else (
+                            f"Model '{payload.model}' could not be resolved "
+                            f"for provider '{payload.provider}'"
+                        )
+                    ),
+                )
+
+            data = ResolveModelResponse(
+                canonical_ref=resolution.entry.ref,
+                provider=resolution.entry.provider,
+                native_model_id=resolution.entry.native_model_id,
+                display_name=resolution.entry.display_name,
+                match_type=resolution.match_type,
+            )
+            return SuccessResponse.create(data=data, msg="Model resolved")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to resolve model: {e}")
 
     @router.get(
         "/providers",
