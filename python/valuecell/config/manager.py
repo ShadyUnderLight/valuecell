@@ -29,6 +29,7 @@ class ProviderConfig:
     default_model: str
     models: List[Dict[str, Any]]
     parameters: Dict[str, Any]
+    default_model_ref: Optional[str] = None
     # Embedding support
     default_embedding_model: Optional[str] = None
     embedding_models: List[Dict[str, Any]] = None
@@ -50,6 +51,7 @@ class AgentModelConfig:
     """Agent model configuration with provider-specific model mappings"""
 
     model_id: str
+    model_ref: Optional[str]
     provider: str
     parameters: Dict[str, Any]
     # Provider-specific model mappings for fallback
@@ -225,6 +227,7 @@ class ConfigManager:
 
         # Get default model
         default_model = provider_data.get("default_model", "")
+        default_model_ref = provider_data.get("default_model_ref")
 
         # Get model list
         models = provider_data.get("models", [])
@@ -247,6 +250,7 @@ class ConfigManager:
             api_key=api_key,
             base_url=base_url,
             default_model=default_model,
+            default_model_ref=default_model_ref,
             models=models,
             parameters=defaults,
             default_embedding_model=default_embedding_model,
@@ -295,13 +299,8 @@ class ConfigManager:
 
         # Get model ID (with fallback chain)
         model_id = primary.get("model_id")
+        model_ref = primary.get("model_ref")
         provider = primary.get("provider") or self.primary_provider
-
-        # If model_id is None, use provider's default
-        if not model_id:
-            provider_config = self.get_provider_config(provider)
-            if provider_config:
-                model_id = provider_config.default_model
 
         # Get parameters
         parameters = primary.get("parameters") or {}
@@ -316,6 +315,7 @@ class ConfigManager:
 
         primary_model = AgentModelConfig(
             model_id=model_id or "",
+            model_ref=model_ref,
             provider=provider,
             parameters=merged_params,
             provider_models=provider_models,
@@ -328,6 +328,7 @@ class ConfigManager:
             embedding_provider_models = embedding_data.get("provider_models", {})
             embedding_model = AgentModelConfig(
                 model_id=embedding_data.get("model_id", ""),
+                model_ref=embedding_data.get("model_ref"),
                 provider=embedding_data.get("provider", "openai"),
                 parameters=embedding_data.get("parameters", {}),
                 provider_models=embedding_provider_models,

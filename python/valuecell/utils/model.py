@@ -240,6 +240,7 @@ def get_model_for_agent(agent_name: str, **kwargs):
 def create_model_with_provider(
     provider: str,
     model_id: Optional[str] = None,
+    model_ref: Optional[str] = None,
     api_key: Optional[str] = None,
     **kwargs,
 ):
@@ -277,54 +278,18 @@ def create_model_with_provider(
         return create_model(
             model_id=model_id,
             provider=provider,
+            model_ref=model_ref,
             use_fallback=False,  # Don't fallback when explicitly requesting a provider
             **kwargs,
         )
-
-    # Minimal override: instantiate the provider class with a copy of its
-    # ProviderConfig but using the provided api_key. This avoids changing the
-    # global configuration and keeps the change localized to this call.
-    try:
-        from valuecell.adapters.models.factory import get_model_factory
-        from valuecell.config.manager import ProviderConfig, get_config_manager
-    except Exception:
-        # Fallback to factory convenience if imports fail for some reason
-        return create_model(
-            model_id=model_id,
-            provider=provider,
-            use_fallback=False,
-            api_key=api_key,
-            **kwargs,
-        )
-
-    cfg_mgr = get_config_manager()
-    existing = cfg_mgr.get_provider_config(provider)
-    if not existing:
-        raise ValueError(f"Provider configuration not found: {provider}")
-
-    # Build a shallow copy of ProviderConfig overriding api_key
-    overridden = ProviderConfig(
-        name=existing.name,
-        enabled=existing.enabled,
+    return create_model(
+        model_id=model_id,
+        provider=provider,
+        model_ref=model_ref,
+        use_fallback=False,
         api_key=api_key,
-        base_url=existing.base_url,
-        default_model=existing.default_model,
-        models=existing.models,
-        parameters=existing.parameters,
-        default_embedding_model=existing.default_embedding_model,
-        embedding_models=existing.embedding_models,
-        embedding_parameters=existing.embedding_parameters,
-        extra_config=existing.extra_config,
+        **kwargs,
     )
-
-    factory = get_model_factory()
-    provider_class = factory._providers.get(provider)
-    if not provider_class:
-        raise ValueError(f"Unsupported provider: {provider}")
-
-    provider_instance = provider_class(overridden)
-    # Delegate to the provider instance directly so the supplied api_key is used
-    return provider_instance.create_model(model_id, **kwargs)
 
 
 # ============================================

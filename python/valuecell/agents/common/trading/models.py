@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from valuecell.utils.ts import get_current_timestamp_ms
 
 from .constants import (
-    DEFAULT_AGENT_MODEL,
     DEFAULT_CAP_FACTOR,
     DEFAULT_INITIAL_CAPITAL,
     DEFAULT_MAX_LEVERAGE,
@@ -80,9 +79,13 @@ class LLMModelConfig(BaseModel):
         default=DEFAULT_MODEL_PROVIDER,
         description="Model provider (e.g., 'openrouter', 'google', 'openai')",
     )
-    model_id: str = Field(
-        default=DEFAULT_AGENT_MODEL,
+    model_id: Optional[str] = Field(
+        default=None,
         description="Model identifier (e.g., 'deepseek-ai/deepseek-v3.1', 'gpt-4o')",
+    )
+    model_ref: Optional[str] = Field(
+        default=None,
+        description="Canonical model ref (e.g., 'openai/gpt-5.4')",
     )
     api_key: str = Field(..., description="API key for the model provider")
 
@@ -107,12 +110,6 @@ class LLMModelConfig(BaseModel):
                 values.setdefault(
                     "provider", values.get("provider") or provider_cfg.name
                 )
-                values.setdefault(
-                    "model_id",
-                    values.get("model_id")
-                    or provider_cfg.default_model
-                    or DEFAULT_AGENT_MODEL,
-                )
                 # If api_key not provided by client, use provider config api_key
                 if values.get("api_key") is None and getattr(
                     provider_cfg, "api_key", None
@@ -120,15 +117,11 @@ class LLMModelConfig(BaseModel):
                     values["api_key"] = provider_cfg.api_key
             else:
                 values.setdefault("provider", resolved_provider)
-                values.setdefault(
-                    "model_id", values.get("model_id") or DEFAULT_AGENT_MODEL
-                )
         except Exception:
             # Fall back to constants if config manager unavailable
             values.setdefault(
                 "provider", values.get("provider") or DEFAULT_MODEL_PROVIDER
             )
-            values.setdefault("model_id", values.get("model_id") or DEFAULT_AGENT_MODEL)
 
         return values
 
