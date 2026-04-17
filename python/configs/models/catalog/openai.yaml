@@ -1,0 +1,39 @@
+entries:
+  - ref: openai/gpt-5.4
+    provider: openai
+    native_model_id: gpt-5-2025-08-07
+    display_name: GPT-5.4
+    aliases:
+      - gpt54
+      - gpt-5.4
+    status: stable
+    visibility: default
+    metadata:
+      family: gpt-5
+      tier: flagship
+
+  - ref: openai/gpt-5.4-mini
+    provider: openai
+    native_model_id: gpt-5-mini-2025-08-07
+    display_name: GPT-5.4 Mini
+    aliases:
+      - gpt54-mini
+      - gpt-5.4-mini
+    status: stable
+    visibility: default
+    metadata:
+      family: gpt-5
+      tier: efficient
+
+  - ref: openai/gpt-4.1
+    provider: openai
+    native_model_id: gpt-4.1-2025-04-14
+    display_name: GPT-4.1
+    aliases:
+      - gpt41
+      - gpt-4.1
+    status: stable
+    visibility: default
+    metadata:
+      family: gpt-4.1
+      tier: flagship

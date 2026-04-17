@@ -1,0 +1,37 @@
+entries:
+  - ref: openrouter/qwen3-max
+    provider: openrouter
+    native_model_id: qwen/qwen3-max
+    display_name: Qwen3 Max
+    aliases:
+      - qwen3-max
+    status: stable
+    visibility: default
+    metadata:
+      family: qwen3
+      tier: flagship
+
+  - ref: openrouter/claude-sonnet-4.5
+    provider: openrouter
+    native_model_id: anthropic/claude-sonnet-4.5
+    display_name: Claude Sonnet 4.5
+    aliases:
+      - claude-sonnet-45
+      - sonnet-4.5
+    status: stable
+    visibility: default
+    metadata:
+      family: claude-4.5
+      tier: flagship
+
+  - ref: openrouter/gemini-2.5-pro
+    provider: openrouter
+    native_model_id: google/gemini-2.5-pro
+    display_name: Gemini 2.5 Pro
+    aliases:
+      - gemini-2.5-pro
+    status: stable
+    visibility: default
+    metadata:
+      family: gemini-2.5
+      tier: flagship
