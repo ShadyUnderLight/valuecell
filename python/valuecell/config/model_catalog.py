@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from yaml import YAMLError
 
 from valuecell.config.constants import CONFIG_DIR
 
@@ -180,8 +181,13 @@ class ModelCatalogLoader:
         return ModelCatalog(entries=tuple(entries))
 
     def _load_yaml(self, path: Path) -> Any:
-        with open(path, "r", encoding="utf-8") as file:
-            return yaml.safe_load(file)
+        try:
+            with open(path, "r", encoding="utf-8") as file:
+                return yaml.safe_load(file)
+        except YAMLError as exc:
+            raise ValueError(
+                f"Malformed catalog file {path}: invalid YAML: {exc}"
+            ) from exc
 
     def _extract_entries(self, loaded_data: Any, path: Path) -> List[Any]:
         if loaded_data is None:
@@ -217,6 +223,8 @@ class ModelCatalogLoader:
         aliases_by_provider: Dict[str, Dict[str, str]] = {}
 
         for entry in entries:
+            self._validate_ref_provider_consistency(entry)
+
             previous_ref = seen_refs.get(entry.normalized_ref)
             if previous_ref is not None:
                 raise ValueError(
@@ -237,6 +245,21 @@ class ModelCatalogLoader:
                         f"conflicts with '{previous_alias}'"
                     )
                 provider_aliases[normalized_alias] = alias
+
+    def _validate_ref_provider_consistency(self, entry: ModelCatalogEntry) -> None:
+        if "/" not in entry.ref:
+            raise ValueError(
+                "Malformed catalog entry: ref must use 'provider/model' format: "
+                f"ref='{entry.ref}'"
+            )
+
+        ref_provider, _, _ = entry.ref.partition("/")
+        normalized_ref_provider = _normalize_key(ref_provider)
+        if normalized_ref_provider != entry.provider:
+            raise ValueError(
+                "Malformed catalog entry: ref/provider mismatch: "
+                f"ref='{entry.ref}', provider='{entry.provider}'"
+            )
 
 
 _catalog_loader: Optional[ModelCatalogLoader] = None

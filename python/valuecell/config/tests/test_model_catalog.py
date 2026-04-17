@@ -118,3 +118,42 @@ entries:
 
     with pytest.raises(ValueError, match="Malformed catalog entry"):
         loader.load()
+
+
+def test_load_model_catalog_ref_provider_mismatch_rejected(tmp_path: Path) -> None:
+    _write_catalog_file(
+        tmp_path,
+        "openai.yaml",
+        """
+entries:
+  - ref: openai/gpt-5.4
+    provider: deepseek
+    native_model_id: gpt-5-2025-08-07
+    display_name: GPT-5.4
+""",
+    )
+
+    loader = ModelCatalogLoader(config_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="ref/provider mismatch"):
+        loader.load()
+
+
+def test_load_model_catalog_invalid_yaml_rejected(tmp_path: Path) -> None:
+    _write_catalog_file(
+        tmp_path,
+        "openai.yaml",
+        """
+entries:
+  - ref: openai/gpt-5.4
+    provider: openai
+    native_model_id: gpt-5-2025-08-07
+    display_name: GPT-5.4
+    aliases: [gpt54, gpt-5.4
+""",
+    )
+
+    loader = ModelCatalogLoader(config_dir=tmp_path)
+
+    with pytest.raises(ValueError, match="Malformed catalog file .*invalid YAML"):
+        loader.load()
