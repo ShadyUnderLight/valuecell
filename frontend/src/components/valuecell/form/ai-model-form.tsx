@@ -2,6 +2,7 @@ import { useStore } from "@tanstack/react-form";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  useGetModelCatalog,
   useGetModelProviderDetail,
   useGetSortedModelProviders,
 } from "@/api/setting";
@@ -32,17 +33,23 @@ export const AIModelForm = withForm({
       data: modelProviderDetail,
       refetch: fetchModelProviderDetail,
     } = useGetModelProviderDetail(provider);
+    const {
+      isLoading: isLoadingModelCatalog,
+      data: modelCatalog = [],
+    } = useGetModelCatalog(provider);
 
-    // Set the default provider once loaded and provider is not yet selected
     useEffect(() => {
       if (isLoadingProviders || !defaultProvider) return;
-      // Only set if provider field is empty (not yet selected by user)
       if (!provider) {
         form.setFieldValue("provider", defaultProvider);
       }
-    }, [isLoadingProviders, defaultProvider, provider]);
+    }, [isLoadingProviders, defaultProvider, provider, form]);
 
-    if (isLoadingProviders || isLoadingModelProviderDetail) {
+    if (
+      isLoadingProviders ||
+      isLoadingModelProviderDetail ||
+      isLoadingModelCatalog
+    ) {
       return <div>Loading...</div>;
     }
 
@@ -86,13 +93,34 @@ export const AIModelForm = withForm({
 
         <form.AppField name="model_id">
           {(field) => {
-            const models = modelProviderDetail?.models || [];
+            const catalogByNativeId = new Map(
+              modelCatalog.map((entry) => [entry.native_model_id, entry]),
+            );
+            const models = (modelProviderDetail?.models || []).map((model) => {
+              const catalogEntry = catalogByNativeId.get(model.model_id);
+              return {
+                model_id: model.model_id,
+                model_name:
+                  catalogEntry?.display_name || model.model_name || model.model_id,
+                metaLabel:
+                  catalogEntry?.status && catalogEntry.status !== "stable"
+                    ? catalogEntry.status
+                    : catalogEntry?.provider || provider,
+              };
+            });
 
             return (
               <field.SelectField label={t("strategy.form.aiModels.model")}>
-                {models.map((m) => (
-                  <SelectItem key={m.model_id} value={m.model_id}>
-                    {m.model_name}
+                {models.map((model) => (
+                  <SelectItem key={model.model_id} value={model.model_id}>
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <span>{model.model_name}</span>
+                      {model.metaLabel ? (
+                        <span className="text-muted-foreground text-xs uppercase">
+                          {model.metaLabel}
+                        </span>
+                      ) : null}
+                    </div>
                   </SelectItem>
                 ))}
               </field.SelectField>

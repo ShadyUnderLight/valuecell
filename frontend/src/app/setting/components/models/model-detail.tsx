@@ -1,13 +1,14 @@
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { useForm } from "@tanstack/react-form";
 import { Eye, EyeOff, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
   useAddProviderModel,
   useCheckModelAvailability,
   useDeleteProviderModel,
+  useGetModelCatalog,
   useGetModelProviderDetail,
   useSetDefaultProvider,
   useSetDefaultProviderModel,
@@ -57,6 +58,8 @@ export function ModelDetail({ provider }: ModelDetailProps) {
 
   const { data: providerDetail, isLoading: detailLoading } =
     useGetModelProviderDetail(provider);
+  const { data: modelCatalog = [], isLoading: catalogLoading } =
+    useGetModelCatalog(provider);
   const { mutate: updateConfig, isPending: updatingConfig } =
     useUpdateProviderConfig();
   const { mutate: addModel, isPending: addingModel } = useAddProviderModel();
@@ -146,7 +149,25 @@ export function ModelDetail({ provider }: ModelDetailProps) {
     settingDefaultProvider ||
     checkingAvailability;
 
-  if (detailLoading) {
+  const providerModels = useMemo(() => {
+    if (!providerDetail) return [];
+
+    const catalogByNativeId = new Map(
+      modelCatalog.map((entry) => [entry.native_model_id, entry]),
+    );
+
+    return providerDetail.models.map((model) => {
+      const catalogEntry = catalogByNativeId.get(model.model_id);
+      return {
+        ...model,
+        model_name:
+          catalogEntry?.display_name || model.model_name || model.model_id,
+        catalogStatus: catalogEntry?.status,
+      };
+    });
+  }, [modelCatalog, providerDetail]);
+
+  if (detailLoading || catalogLoading) {
     return (
       <div className="text-muted-foreground text-sm">
         {t("settings.models.loading")}
@@ -274,7 +295,6 @@ export function ModelDetail({ provider }: ModelDetailProps) {
               )}
             </configForm.Field>
 
-            {/* API Host section */}
             <configForm.Field name="base_url">
               {(field) => (
                 <Field className="text-foreground">
@@ -299,7 +319,6 @@ export function ModelDetail({ provider }: ModelDetailProps) {
             </configForm.Field>
           </FieldGroup>
 
-          {/* Models section */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="font-medium text-base text-foreground">
@@ -396,35 +415,42 @@ export function ModelDetail({ provider }: ModelDetailProps) {
               </Dialog>
             </div>
 
-            {providerDetail.models.length === 0 ? (
+            {providerModels.length === 0 ? (
               <div className="rounded-lg border border-border border-dashed p-4 text-muted-foreground text-sm">
                 {t("settings.models.noModels")}
               </div>
             ) : (
               <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
-                {providerDetail.models.map((m) => (
+                {providerModels.map((model) => (
                   <div
-                    key={m.model_id}
+                    key={model.model_id}
                     className="flex items-center justify-between"
                   >
-                    <span className="font-normal text-foreground text-sm">
-                      {m.model_name}
-                    </span>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-normal text-foreground text-sm">
+                        {model.model_name}
+                      </span>
+                      {model.catalogStatus && model.catalogStatus !== "stable" ? (
+                        <span className="text-muted-foreground text-xs uppercase">
+                          {model.catalogStatus}
+                        </span>
+                      ) : null}
+                    </div>
 
                     <div className="flex items-center gap-3">
                       <Switch
                         className="cursor-pointer"
-                        checked={m.model_id === providerDetail.default_model_id}
+                        checked={model.model_id === providerDetail.default_model_id}
                         disabled={isBusy}
                         onCheckedChange={() =>
-                          handleSetDefaultModel(m.model_id)
+                          handleSetDefaultModel(model.model_id)
                         }
                       />
                       <Button
                         variant="ghost"
                         size="icon"
                         disabled={isBusy}
-                        onClick={() => handleDeleteModel(m.model_id)}
+                        onClick={() => handleDeleteModel(model.model_id)}
                       >
                         <Trash2 className="size-5" />
                       </Button>

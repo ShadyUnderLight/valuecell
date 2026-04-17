@@ -8,6 +8,7 @@ import { API_QUERY_KEYS } from "@/constants/api";
 import type { ApiResponse } from "@/lib/api-client";
 import { apiClient } from "@/lib/api-client";
 import type {
+  CatalogModelItem,
   CheckModelRequest,
   CheckModelResult,
   MemoryItem,
@@ -57,6 +58,18 @@ export const useGetModelProviderDetail = (provider: string | undefined) => {
     queryFn: () =>
       apiClient.get<ApiResponse<ProviderDetail>>(
         `/models/providers/${provider}`,
+      ),
+    select: (data) => data.data,
+  });
+};
+
+export const useGetModelCatalog = (provider: string | undefined) => {
+  return useQuery({
+    enabled: !!provider,
+    queryKey: API_QUERY_KEYS.SETTING.modelCatalog(provider ? [provider] : []),
+    queryFn: () =>
+      apiClient.get<ApiResponse<CatalogModelItem[]>>(
+        `/models/catalog?provider=${encodeURIComponent(provider ?? "")}`,
       ),
     select: (data) => data.data,
   });

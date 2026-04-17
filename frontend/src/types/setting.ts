@@ -21,6 +21,15 @@ export type ProviderDetail = {
   models: ProviderModelInfo[];
 };
 
+export type CatalogModelItem = {
+  canonical_ref: string;
+  provider: string;
+  native_model_id: string;
+  display_name: string;
+  status?: string;
+  visibility?: string;
+};
+
 // --- Model availability check ---
 export type CheckModelRequest = {
   provider?: string;
