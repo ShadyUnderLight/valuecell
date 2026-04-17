@@ -59,6 +59,7 @@ class LlmComposer(BaseComposer):
         self._model = model_utils.create_model_with_provider(
             provider=cfg.provider,
             model_id=cfg.model_id,
+            model_ref=cfg.model_ref,
             api_key=cfg.api_key,
         )
         self.agent = AgnoAgent(

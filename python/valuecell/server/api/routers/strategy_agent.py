@@ -93,9 +93,8 @@ def create_strategy_agent_router() -> APIRouter:
             # If same provider + model_id comes with a new api_key, override previous key
             try:
                 provider = user_request.llm_model_config.provider
-                model_id = user_request.llm_model_config.model_id
                 new_api_key = user_request.llm_model_config.api_key
-                if provider and model_id and new_api_key:
+                if provider and new_api_key:
                     loader = get_config_loader()
                     provider_cfg_raw = loader.load_provider_config(provider) or {}
                     api_key_env = provider_cfg_raw.get("connection", {}).get(
@@ -196,6 +195,7 @@ def create_strategy_agent_router() -> APIRouter:
                                 "strategy_type": strategy_type_enum,
                                 "model_provider": request.llm_model_config.provider,
                                 "model_id": request.llm_model_config.model_id,
+                                "model_ref": request.llm_model_config.model_ref,
                                 "exchange_id": request.exchange_config.exchange_id,
                                 "trading_mode": request.exchange_config.trading_mode.value,
                             }

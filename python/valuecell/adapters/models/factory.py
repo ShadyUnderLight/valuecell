@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 from loguru import logger
 
 from valuecell.config.manager import ConfigManager, ProviderConfig, get_config_manager
+from valuecell.config.model_resolver import ModelResolver
 
 
 class ModelProvider(ABC):
@@ -619,6 +620,71 @@ class ModelFactory:
             config_manager: ConfigManager instance (auto-created if None)
         """
         self.config_manager = config_manager or get_config_manager()
+        self._model_resolver: Optional[ModelResolver] = None
+
+    @staticmethod
+    def _clean_string(value: Optional[str]) -> Optional[str]:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    def _get_model_resolver(self) -> ModelResolver:
+        if self._model_resolver is None:
+            self._model_resolver = ModelResolver.from_config(
+                config_dir=self.config_manager.loader.config_dir
+            )
+        return self._model_resolver
+
+    def _resolve_model_id_for_provider(
+        self,
+        provider: str,
+        model_id: Optional[str],
+        model_ref: Optional[str],
+    ) -> str:
+        provider_config = self.config_manager.get_provider_config(provider)
+        if not provider_config:
+            raise ValueError(f"Provider configuration not found: {provider}")
+
+        explicit_model_ref = self._clean_string(model_ref)
+        explicit_model_id = self._clean_string(model_id)
+
+        if explicit_model_ref:
+            resolution = self._get_model_resolver().resolve(
+                explicit_model_ref, provider=provider
+            )
+            if resolution is None:
+                raise ValueError(
+                    f"Model ref '{explicit_model_ref}' not found for provider '{provider}'"
+                )
+            return resolution.entry.native_model_id
+
+        if explicit_model_id:
+            return explicit_model_id
+
+        default_model_ref = self._clean_string(provider_config.default_model_ref)
+        if default_model_ref:
+            resolution = self._get_model_resolver().resolve(
+                default_model_ref, provider=provider
+            )
+            if resolution is not None:
+                return resolution.entry.native_model_id
+            logger.warning(
+                "Provider default_model_ref '{}' for provider '{}' cannot be resolved; "
+                "falling back to default_model",
+                default_model_ref,
+                provider,
+            )
+
+        fallback_model_id = self._clean_string(provider_config.default_model)
+        if fallback_model_id:
+            return fallback_model_id
+
+        raise ValueError(
+            f"No model could be resolved for provider '{provider}'. "
+            "Expected one of: explicit model_ref, explicit model_id, "
+            "provider default_model_ref, provider default_model."
+        )
 
     def register_provider(self, name: str, provider_class: type[ModelProvider]):
         """
@@ -637,6 +703,7 @@ class ModelFactory:
         provider: Optional[str] = None,
         use_fallback: bool = True,
         provider_models: Optional[dict] = None,
+        model_ref: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -679,7 +746,12 @@ class ModelFactory:
 
         # Try primary provider
         try:
-            return self._create_model_internal(model_id, provider, **kwargs)
+            resolved_model_id = self._resolve_model_id_for_provider(
+                provider=provider,
+                model_id=model_id,
+                model_ref=model_ref,
+            )
+            return self._create_model_internal(resolved_model_id, provider, **kwargs)
         except Exception as e:
             logger.warning(f"Failed to create model with provider {provider}: {e}")
 
@@ -713,8 +785,13 @@ class ModelFactory:
                             )
 
                     logger.info(f"Trying fallback provider: {fallback_provider}")
+                    resolved_model_id = self._resolve_model_id_for_provider(
+                        provider=fallback_provider,
+                        model_id=fallback_model_id,
+                        model_ref=None,
+                    )
                     return self._create_model_internal(
-                        fallback_model_id, fallback_provider, **kwargs
+                        resolved_model_id, fallback_provider, **kwargs
                     )
                 except Exception as fallback_error:
                     logger.warning(
@@ -759,6 +836,7 @@ class ModelFactory:
                 api_key=override_api_key,
                 base_url=provider_config.base_url,
                 default_model=provider_config.default_model,
+                default_model_ref=provider_config.default_model_ref,
                 models=provider_config.models,
                 parameters=provider_config.parameters,
                 default_embedding_model=provider_config.default_embedding_model,
@@ -832,12 +910,15 @@ class ModelFactory:
 
         logger.info(
             f"Creating model for agent '{agent_name}': "
-            f"model_id={model_config.model_id}, provider={model_config.provider}"
+            f"model_id={model_config.model_id}, "
+            f"model_ref={model_config.model_ref}, "
+            f"provider={model_config.provider}"
         )
 
         # Check if specified provider is available (has API key)
         provider = model_config.provider
         model_id = model_config.model_id
+        model_ref = model_config.model_ref
         is_valid, error_msg = self.config_manager.validate_provider(provider)
 
         if not is_valid:
@@ -853,6 +934,7 @@ class ModelFactory:
             # Priority: provider_models[fallback_provider] > provider's default_model
             if fallback_provider in model_config.provider_models:
                 model_id = model_config.provider_models[fallback_provider]
+                model_ref = None
                 logger.info(
                     f"Using provider-specific model for fallback: {fallback_provider} -> {model_id}"
                 )
@@ -863,6 +945,7 @@ class ModelFactory:
                 )
                 if provider_config:
                     model_id = provider_config.default_model
+                    model_ref = None
                     logger.info(
                         f"Using default model for fallback provider '{fallback_provider}': {model_id}"
                     )
@@ -873,6 +956,7 @@ class ModelFactory:
             provider=provider,
             use_fallback=use_fallback,
             provider_models=model_config.provider_models,
+            model_ref=model_ref,
             **merged_params,
         )
 
@@ -1161,6 +1245,7 @@ class ModelFactory:
                 api_key=override_api_key,
                 base_url=provider_config.base_url,
                 default_model=provider_config.default_model,
+                default_model_ref=provider_config.default_model_ref,
                 models=provider_config.models,
                 parameters=provider_config.parameters,
                 default_embedding_model=provider_config.default_embedding_model,
@@ -1213,7 +1298,10 @@ def get_model_factory() -> ModelFactory:
 
 
 def create_model(
-    model_id: Optional[str] = None, provider: Optional[str] = None, **kwargs
+    model_id: Optional[str] = None,
+    provider: Optional[str] = None,
+    model_ref: Optional[str] = None,
+    **kwargs,
 ):
     """
     Convenience function to create a model instance
@@ -1240,7 +1328,12 @@ def create_model(
         >>> model = create_model(temperature=0.9, max_tokens=8192)
     """
     factory = get_model_factory()
-    return factory.create_model(model_id, provider, **kwargs)
+    return factory.create_model(
+        model_id=model_id,
+        provider=provider,
+        model_ref=model_ref,
+        **kwargs,
+    )
 
 
 def create_model_for_agent(agent_name: str, **kwargs):
