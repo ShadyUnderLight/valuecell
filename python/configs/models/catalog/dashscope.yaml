@@ -1,0 +1,36 @@
+entries:
+  - ref: dashscope/qwen3-max
+    provider: dashscope
+    native_model_id: qwen3-max
+    display_name: Qwen3 Max
+    aliases:
+      - qwen3-max
+    status: stable
+    visibility: default
+    metadata:
+      family: qwen3
+      tier: flagship
+
+  - ref: dashscope/qwen3-plus
+    provider: dashscope
+    native_model_id: qwen3-plus
+    display_name: Qwen3 Plus
+    aliases:
+      - qwen3-plus
+    status: stable
+    visibility: default
+    metadata:
+      family: qwen3
+      tier: balanced
+
+  - ref: dashscope/qwen3-flash
+    provider: dashscope
+    native_model_id: qwen3-flash
+    display_name: Qwen3 Flash
+    aliases:
+      - qwen3-flash
+    status: stable
+    visibility: default
+    metadata:
+      family: qwen3
+      tier: fast

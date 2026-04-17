@@ -1,0 +1,26 @@
+entries:
+  - ref: deepseek/deepseek-v3.1
+    provider: deepseek
+    native_model_id: deepseek-v3.1
+    display_name: DeepSeek V3.1
+    aliases:
+      - deepseek-v3.1
+      - deepseek-chat
+    status: stable
+    visibility: default
+    metadata:
+      family: deepseek-v3
+      tier: flagship
+
+  - ref: deepseek/deepseek-r1
+    provider: deepseek
+    native_model_id: deepseek-r1
+    display_name: DeepSeek R1
+    aliases:
+      - deepseek-r1
+      - deepseek-reasoner
+    status: stable
+    visibility: default
+    metadata:
+      family: deepseek-r1
+      tier: reasoning

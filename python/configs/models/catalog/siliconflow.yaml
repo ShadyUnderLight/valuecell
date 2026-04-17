@@ -1,0 +1,25 @@
+entries:
+  - ref: siliconflow/deepseek-v3.1-terminus
+    provider: siliconflow
+    native_model_id: deepseek-ai/DeepSeek-V3.1-Terminus
+    display_name: DeepSeek V3.1 Terminus
+    aliases:
+      - deepseek-v3.1-terminus
+    status: stable
+    visibility: default
+    metadata:
+      family: deepseek-v3
+      tier: flagship
+
+  - ref: siliconflow/glm-4.5
+    provider: siliconflow
+    native_model_id: zai-org/GLM-4.5
+    display_name: GLM-4.5
+    aliases:
+      - glm45
+      - glm-4.5
+    status: stable
+    visibility: default
+    metadata:
+      family: glm-4.5
+      tier: flagship

@@ -1,0 +1,26 @@
+entries:
+  - ref: google/gemini-2.5-pro
+    provider: google
+    native_model_id: gemini-2.5-pro
+    display_name: Gemini 2.5 Pro
+    aliases:
+      - gemini25-pro
+      - gemini-2.5-pro
+    status: stable
+    visibility: default
+    metadata:
+      family: gemini-2.5
+      tier: flagship
+
+  - ref: google/gemini-2.5-flash
+    provider: google
+    native_model_id: gemini-2.5-flash
+    display_name: Gemini 2.5 Flash
+    aliases:
+      - gemini25-flash
+      - gemini-2.5-flash
+    status: stable
+    visibility: default
+    metadata:
+      family: gemini-2.5
+      tier: fast
