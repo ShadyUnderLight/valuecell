@@ -101,13 +101,29 @@ class ModelResolver:
             provider_native_ids = self._entries_by_provider_native_id.setdefault(
                 entry.provider, {}
             )
-            provider_native_ids[_normalize_key(entry.native_model_id)] = entry
+            normalized_native_id = _normalize_key(entry.native_model_id)
+            existing_native_entry = provider_native_ids.get(normalized_native_id)
+            if existing_native_entry is not None:
+                raise ValueError(
+                    "Duplicate native_model_id detected within provider scope: "
+                    f"provider='{entry.provider}', native_model_id='{entry.native_model_id}' "
+                    f"conflicts with '{existing_native_entry.native_model_id}'"
+                )
+            provider_native_ids[normalized_native_id] = entry
 
             provider_legacy_ids = self._entries_by_provider_legacy_id.setdefault(
                 entry.provider, {}
             )
             for legacy_id in self._extract_legacy_ids(entry):
-                provider_legacy_ids[_normalize_key(legacy_id)] = entry
+                normalized_legacy_id = _normalize_key(legacy_id)
+                existing_legacy_entry = provider_legacy_ids.get(normalized_legacy_id)
+                if existing_legacy_entry is not None:
+                    raise ValueError(
+                        "Duplicate legacy_id detected within provider scope: "
+                        f"provider='{entry.provider}', legacy_id='{legacy_id}' "
+                        f"conflicts with '{existing_legacy_entry.ref}'"
+                    )
+                provider_legacy_ids[normalized_legacy_id] = entry
 
     def _extract_legacy_ids(self, entry: ModelCatalogEntry) -> tuple[str, ...]:
         raw = entry.metadata.get("legacy_ids")
