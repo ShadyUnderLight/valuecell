@@ -200,3 +200,37 @@ def test_validate_prefers_explicit_model_ref(tmp_path: Path, monkeypatch) -> Non
     assert data["resolved_model_id"] == "gpt-5-2025-08-07"
     assert data["match_type"] == "canonical_ref"
     assert data["stages"]["resolved"] is True
+
+
+def test_validate_invalid_explicit_model_ref_does_not_fallback(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _prepare_config(tmp_path)
+    client = _build_client(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/api/v1/models/validate",
+        json={
+            "provider": "openai",
+            "model_ref": "openai/does-not-exist",
+            "model_id": "gpt-5",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    assert data["ok"] is False
+    assert data["status"] == "unresolved_model_ref"
+    assert data["error"] == "Explicit model_ref 'openai/does-not-exist' could not be resolved"
+    assert data["model_id"] == "openai/does-not-exist"
+    assert data["canonical_ref"] is None
+    assert data["resolved_provider"] is None
+    assert data["resolved_model_id"] is None
+    assert data["match_type"] is None
+
+    stages = data["stages"]
+    assert stages["catalog_known"] is False
+    assert stages["resolved"] is False
+    assert stages["native_model_id_present"] is False
+    assert stages["reachable"] is False
