@@ -157,3 +157,27 @@ entries:
 
     with pytest.raises(ValueError, match="Malformed catalog file .*invalid YAML"):
         loader.load()
+
+
+def test_load_model_catalog_supports_minimax_cn_provider(tmp_path: Path) -> None:
+    _write_catalog_file(
+        tmp_path,
+        "minimax_cn.yaml",
+        """
+entries:
+  - ref: minimax_cn/minimax-m2.7
+    provider: minimax_cn
+    native_model_id: MiniMax-M2.7
+    display_name: MiniMax CN M2.7
+    aliases: [minimax-cn-m2.7]
+""",
+    )
+
+    loader = ModelCatalogLoader(config_dir=tmp_path)
+    catalog = loader.load()
+
+    assert len(catalog.entries) == 1
+    entry = catalog.entries[0]
+    assert entry.provider == "minimax_cn"
+    assert entry.ref == "minimax_cn/minimax-m2.7"
+    assert entry.native_model_id == "MiniMax-M2.7"

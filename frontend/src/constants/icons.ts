@@ -28,6 +28,7 @@ export const MODEL_PROVIDER_ICONS = {
   azure: AzurePng,
   dashscope: DashScopePng,
   minimax: OpenAiCompatiblePng,
+  minimax_cn: OpenAiCompatiblePng,
   ollama: OllamaPng,
 };
 
