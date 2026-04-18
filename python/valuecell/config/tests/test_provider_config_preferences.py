@@ -61,6 +61,8 @@ entries:
     assert config.models == [
         {"id": "gpt-5-2025-08-07", "name": "GPT-5.4"},
         {"id": "gpt-4.1-2025-04-14", "name": "GPT-4.1"},
+        {"id": "gpt-5", "name": "GPT-5 Legacy"},
+        {"id": "gpt-4.1-legacy", "name": "GPT-4.1 Legacy"},
     ]
 
 
@@ -85,3 +87,44 @@ models:
     assert config.default_model_ref is None
     assert config.recommended_models == []
     assert config.models == [{"id": "gpt-5", "name": "GPT-5 Legacy"}]
+
+
+def test_get_provider_config_keeps_uncovered_legacy_models_after_recommended(
+    tmp_path: Path,
+) -> None:
+    _write_base_config(tmp_path)
+    _write(
+        tmp_path / "providers" / "openai.yaml",
+        """
+recommended_models:
+  - openai/gpt-5.4
+models:
+  - id: gpt-5
+    name: GPT-5 Legacy
+  - id: gpt-4.1-legacy
+    name: GPT-4.1 Legacy
+  - id: custom-local-model
+    name: Custom Local Model
+""",
+    )
+    _write(
+        tmp_path / "models" / "catalog" / "openai.yaml",
+        """
+entries:
+  - ref: openai/gpt-5.4
+    provider: openai
+    native_model_id: gpt-5-2025-08-07
+    display_name: GPT-5.4
+""",
+    )
+
+    manager = ConfigManager(loader=ConfigLoader(config_dir=tmp_path))
+    config = manager.get_provider_config("openai")
+
+    assert config is not None
+    assert config.models == [
+        {"id": "gpt-5-2025-08-07", "name": "GPT-5.4"},
+        {"id": "gpt-5", "name": "GPT-5 Legacy"},
+        {"id": "gpt-4.1-legacy", "name": "GPT-4.1 Legacy"},
+        {"id": "custom-local-model", "name": "Custom Local Model"},
+    ]

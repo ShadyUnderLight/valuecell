@@ -173,6 +173,19 @@ class ConfigManager:
                 }
             )
 
+        for legacy_model in legacy_models:
+            if not isinstance(legacy_model, dict):
+                continue
+            legacy_model_id = legacy_model.get("id")
+            if not isinstance(legacy_model_id, str):
+                continue
+            normalized_legacy_model_id = legacy_model_id.strip()
+            if not normalized_legacy_model_id or normalized_legacy_model_id in seen_ids:
+                continue
+
+            preferred.append(legacy_model)
+            seen_ids.add(normalized_legacy_model_id)
+
         return preferred
 
     @property
