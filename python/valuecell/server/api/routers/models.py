@@ -661,30 +661,31 @@ def create_models_router() -> APIRouter:
             provider_default_model_id: str | None,
             explicit_model_ref: str | None,
             explicit_model_id: str | None,
-        ) -> tuple[str | None, ModelResolution | None]:
+        ) -> tuple[str | None, ModelResolution | None, bool]:
             if explicit_model_ref:
                 resolution = resolver.resolve(explicit_model_ref, provider=provider_name)
                 if resolution is not None:
-                    return resolution.entry.native_model_id, resolution
+                    return resolution.entry.native_model_id, resolution, False
+                return explicit_model_ref, None, True
 
             if explicit_model_id:
                 resolution = resolver.resolve(explicit_model_id, provider=provider_name)
-                return explicit_model_id, resolution
+                return explicit_model_id, resolution, False
 
             if provider_default_model_ref:
                 resolution = resolver.resolve(
                     provider_default_model_ref, provider=provider_name
                 )
                 if resolution is not None:
-                    return resolution.entry.native_model_id, resolution
+                    return resolution.entry.native_model_id, resolution, False
 
             if provider_default_model_id:
                 resolution = resolver.resolve(
                     provider_default_model_id, provider=provider_name
                 )
-                return provider_default_model_id, resolution
+                return provider_default_model_id, resolution, False
 
-            return None, None
+            return None, None, False
 
         def _is_provider_configured(
             *,
@@ -714,14 +715,46 @@ def create_models_router() -> APIRouter:
             base_url = (getattr(cfg, "base_url", None) or "").strip()
             resolver = get_model_resolver()
 
-            model_id, resolution = _resolve_validation_model_id(
-                resolver=resolver,
-                provider_name=provider,
-                provider_default_model_ref=_clean_string(cfg.default_model_ref),
-                provider_default_model_id=_clean_string(cfg.default_model),
-                explicit_model_ref=_clean_string(payload.model_ref),
-                explicit_model_id=_clean_string(payload.model_id),
+            explicit_model_ref = _clean_string(payload.model_ref)
+            model_id, resolution, explicit_model_ref_unresolved = (
+                _resolve_validation_model_id(
+                    resolver=resolver,
+                    provider_name=provider,
+                    provider_default_model_ref=_clean_string(cfg.default_model_ref),
+                    provider_default_model_id=_clean_string(cfg.default_model),
+                    explicit_model_ref=explicit_model_ref,
+                    explicit_model_id=_clean_string(payload.model_id),
+                )
             )
+            if explicit_model_ref_unresolved:
+                result = CheckModelResponse(
+                    ok=False,
+                    provider=provider,
+                    model_id=explicit_model_ref or "",
+                    status="unresolved_model_ref",
+                    error=f"Explicit model_ref '{explicit_model_ref}' could not be resolved",
+                    canonical_ref=None,
+                    resolved_provider=None,
+                    resolved_model_id=None,
+                    match_type=None,
+                    stages=ModelValidationStages(
+                        catalog_known=False,
+                        provider_enabled=bool(cfg.enabled),
+                        provider_configured=_is_provider_configured(
+                            provider_name=provider,
+                            is_enabled=bool(cfg.enabled),
+                            api_key_value=api_key,
+                            base_url_value=base_url,
+                        ),
+                        resolved=False,
+                        native_model_id_present=False,
+                        reachable=False,
+                        deprecated=False,
+                        preview=False,
+                    ),
+                )
+                return SuccessResponse.create(data=result, msg="Model validation completed")
+
             if not model_id:
                 raise HTTPException(
                     status_code=400,
