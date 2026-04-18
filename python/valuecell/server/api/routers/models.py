@@ -14,6 +14,7 @@ from valuecell.config.loader import get_config_loader
 from valuecell.config.manager import get_config_manager
 from valuecell.config.model_catalog import ModelCatalogEntry
 from valuecell.config.model_resolver import ModelResolution, ModelResolver
+from valuecell.adapters.models.provider_inventory import get_provider_inventory_source
 from valuecell.utils.env import get_system_env_path
 
 from ..schemas import SuccessResponse
@@ -194,7 +195,7 @@ def create_models_router() -> APIRouter:
                 return True
         return False
 
-    def _to_scan_candidates(provider: str) -> List[dict[str, str | None]]:
+    def _ensure_provider_exists(provider: str) -> None:
         manager = get_config_manager()
         cfg = manager.get_provider_config(provider)
         if cfg is None:
@@ -202,18 +203,20 @@ def create_models_router() -> APIRouter:
                 status_code=404, detail=f"Provider '{provider}' not found"
             )
 
+    async def _to_scan_candidates(provider: str) -> List[dict[str, str | None]]:
+        _ensure_provider_exists(provider)
+        inventory_source = get_provider_inventory_source()
+        inventory_models = await inventory_source.list_models(provider=provider)
+
         candidates: List[dict[str, str | None]] = []
-        for model in cfg.models or []:
-            if not isinstance(model, dict):
-                continue
-            model_id = str(model.get("id", "")).strip()
+        for model in inventory_models:
+            model_id = model.model_id.strip()
             if not model_id:
                 continue
-            model_name_raw = model.get("name")
-            model_name = None
-            if isinstance(model_name_raw, str):
-                normalized_name = model_name_raw.strip()
-                model_name = normalized_name if normalized_name else None
+            model_name_raw = model.model_name
+            model_name = model_name_raw.strip() if model_name_raw else None
+            if model_name == "":
+                model_name = None
             candidates.append({"model_id": model_id, "model_name": model_name})
 
         return candidates
@@ -508,7 +511,7 @@ def create_models_router() -> APIRouter:
     ) -> SuccessResponse[ProviderScanResponse]:
         try:
             scanned_at = datetime.now(timezone.utc).isoformat()
-            candidates = _to_scan_candidates(provider=provider)
+            candidates = await _to_scan_candidates(provider=provider)
             data = _build_scan_response(
                 provider=provider, scanned_at=scanned_at, candidates=candidates
             )
@@ -569,8 +572,8 @@ def create_models_router() -> APIRouter:
                     status_code=400, detail="At least one model_id must be provided"
                 )
 
-            # Ensure provider exists.
-            _to_scan_candidates(provider=provider)
+            # Ensure provider exists independently from scan state.
+            _ensure_provider_exists(provider=provider)
 
             scan_doc = _load_yaml(_scan_yaml(provider))
             if not isinstance(scan_doc, dict):

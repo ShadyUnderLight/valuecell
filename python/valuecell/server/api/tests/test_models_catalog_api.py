@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from valuecell.adapters.models.provider_inventory import ProviderInventoryModel
 from valuecell.config.loader import ConfigLoader
 from valuecell.config.manager import ConfigManager
 from valuecell.config.model_resolver import ModelResolver
@@ -108,6 +109,14 @@ def _build_client(tmp_path: Path, monkeypatch) -> TestClient:
     app = FastAPI()
     app.include_router(models_router.create_models_router(), prefix="/api/v1")
     return TestClient(app)
+
+
+class _FakeProviderInventorySource:
+    def __init__(self, items_by_provider: dict[str, list[ProviderInventoryModel]]) -> None:
+        self._items_by_provider = items_by_provider
+
+    async def list_models(self, provider: str) -> list[ProviderInventoryModel]:
+        return list(self._items_by_provider.get(provider, []))
 
 
 def test_get_models_catalog_with_filters(tmp_path: Path, monkeypatch) -> None:
@@ -265,6 +274,19 @@ def test_scan_provider_persists_state_and_does_not_auto_import(
     tmp_path: Path, monkeypatch
 ) -> None:
     _prepare_config(tmp_path)
+    monkeypatch.setattr(
+        models_router,
+        "get_provider_inventory_source",
+        lambda: _FakeProviderInventorySource(
+            {
+                "openai": [
+                    ProviderInventoryModel(
+                        model_id="provider-scan-only", model_name="Provider Scan Only"
+                    )
+                ]
+            }
+        ),
+    )
     client = _build_client(tmp_path, monkeypatch)
 
     response = client.post("/api/v1/models/providers/openai/scan")
@@ -272,10 +294,11 @@ def test_scan_provider_persists_state_and_does_not_auto_import(
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["provider"] == "openai"
-    assert sorted(data["report"]["new_model_ids"]) == ["gpt-5", "gpt-next"]
+    assert sorted(data["report"]["new_model_ids"]) == ["provider-scan-only"]
     assert data["report"]["missing_model_ids"] == ["gpt-5-2025-08-07"]
     assert data["report"]["renamed_model_ids"] == []
     assert data["report"]["deprecated_model_ids"] == []
+    assert [item["model_id"] for item in data["candidates"]] == ["provider-scan-only"]
 
     scan_file = tmp_path / "models" / "scans" / "openai.yaml"
     assert scan_file.exists() is True
@@ -291,6 +314,19 @@ def test_import_catalog_from_scan_selected_model_ids_only(
     tmp_path: Path, monkeypatch
 ) -> None:
     _prepare_config(tmp_path)
+    monkeypatch.setattr(
+        models_router,
+        "get_provider_inventory_source",
+        lambda: _FakeProviderInventorySource(
+            {
+                "openai": [
+                    ProviderInventoryModel(
+                        model_id="provider-scan-only", model_name="Provider Scan Only"
+                    )
+                ]
+            }
+        ),
+    )
     client = _build_client(tmp_path, monkeypatch)
 
     scan_response = client.post("/api/v1/models/providers/openai/scan")
@@ -298,14 +334,17 @@ def test_import_catalog_from_scan_selected_model_ids_only(
 
     import_response = client.post(
         "/api/v1/models/catalog/import",
-        json={"provider": "openai", "model_ids": ["gpt-next", "gpt-not-in-scan"]},
+        json={
+            "provider": "openai",
+            "model_ids": ["provider-scan-only", "gpt-not-in-scan"],
+        },
     )
     assert import_response.status_code == 200
     data = import_response.json()["data"]
 
     assert data["provider"] == "openai"
     assert len(data["imported"]) == 1
-    assert data["imported"][0]["native_model_id"] == "gpt-next"
+    assert data["imported"][0]["native_model_id"] == "provider-scan-only"
     assert data["imported"][0]["source"] == "imported"
     assert data["skipped_existing_model_ids"] == []
     assert data["missing_from_scan_model_ids"] == ["gpt-not-in-scan"]
@@ -313,12 +352,13 @@ def test_import_catalog_from_scan_selected_model_ids_only(
     imported_file = tmp_path / "models" / "catalog" / "openai.imported.yaml"
     assert imported_file.exists() is True
     imported_text = imported_file.read_text(encoding="utf-8")
-    assert "native_model_id: gpt-next" in imported_text
+    assert "native_model_id: provider-scan-only" in imported_text
     assert "visibility: hidden" in imported_text
     assert "source: imported" in imported_text
 
     catalog_response = client.get(
-        "/api/v1/models/catalog", params={"provider": "openai", "query": "gpt-next"}
+        "/api/v1/models/catalog",
+        params={"provider": "openai", "query": "provider-scan-only"},
     )
     assert catalog_response.status_code == 200
     assert len(catalog_response.json()["data"]) == 1
