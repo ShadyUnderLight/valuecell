@@ -13,6 +13,13 @@ connection:
 
 # Default model if none specified
 default_model: "gpt-5-2025-08-07"
+default_model_ref: "openai/gpt-5.4"
+
+# Preferred provider-level recommendations (catalog refs)
+recommended_models:
+  - "openai/gpt-5.4"
+  - "openai/gpt-5.4-mini"
+  - "openai/gpt-4.1"
 
 # Available Models
 models:

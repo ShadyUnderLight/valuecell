@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from valuecell.config.loader import ConfigLoader, get_config_loader
+from valuecell.config.model_resolver import ModelResolver
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class ProviderConfig:
     default_model: str
     models: List[Dict[str, Any]]
     parameters: Dict[str, Any]
+    recommended_models: Optional[List[str]] = None
     default_model_ref: Optional[str] = None
     # Embedding support
     default_embedding_model: Optional[str] = None
@@ -44,6 +46,8 @@ class ProviderConfig:
             self.embedding_parameters = {}
         if self.extra_config is None:
             self.extra_config = {}
+        if self.recommended_models is None:
+            self.recommended_models = []
 
 
 @dataclass
@@ -96,6 +100,93 @@ class ConfigManager:
         """
         self.loader = loader or get_config_loader()
         self._config = self.loader.load_config()
+        self._model_resolver: Optional[ModelResolver] = None
+
+    @staticmethod
+    def _normalize_string_list(values: Any) -> List[str]:
+        if not isinstance(values, list):
+            return []
+        normalized_values: List[str] = []
+        for value in values:
+            if not isinstance(value, str):
+                continue
+            normalized = value.strip()
+            if normalized:
+                normalized_values.append(normalized)
+        return normalized_values
+
+    def _get_model_resolver(self) -> Optional[ModelResolver]:
+        if self._model_resolver is None:
+            try:
+                self._model_resolver = ModelResolver.from_config(
+                    config_dir=self.loader.config_dir
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to initialize model resolver from config dir: %s",
+                    self.loader.config_dir,
+                )
+                return None
+        return self._model_resolver
+
+    def _build_preferred_models(
+        self,
+        provider_name: str,
+        recommended_models: List[str],
+        legacy_models: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        if not recommended_models:
+            return legacy_models
+
+        resolver = self._get_model_resolver()
+        preferred: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        for model_ref in recommended_models:
+            resolved_model_id = model_ref
+            resolved_model_name: Optional[str] = None
+
+            if resolver is not None:
+                resolution = resolver.resolve(model_ref, provider=provider_name)
+                if resolution is not None:
+                    resolved_model_id = resolution.entry.native_model_id
+                    resolved_model_name = resolution.entry.display_name
+
+            if resolved_model_name is None:
+                for legacy_model in legacy_models:
+                    if (
+                        isinstance(legacy_model, dict)
+                        and legacy_model.get("id") == resolved_model_id
+                    ):
+                        name = legacy_model.get("name")
+                        if isinstance(name, str) and name.strip():
+                            resolved_model_name = name
+                        break
+
+            if resolved_model_id in seen_ids:
+                continue
+            seen_ids.add(resolved_model_id)
+            preferred.append(
+                {
+                    "id": resolved_model_id,
+                    "name": resolved_model_name or resolved_model_id,
+                }
+            )
+
+        for legacy_model in legacy_models:
+            if not isinstance(legacy_model, dict):
+                continue
+            legacy_model_id = legacy_model.get("id")
+            if not isinstance(legacy_model_id, str):
+                continue
+            normalized_legacy_model_id = legacy_model_id.strip()
+            if not normalized_legacy_model_id or normalized_legacy_model_id in seen_ids:
+                continue
+
+            preferred.append(legacy_model)
+            seen_ids.add(normalized_legacy_model_id)
+
+        return preferred
 
     @property
     def app_config(self) -> Dict[str, Any]:
@@ -230,7 +321,17 @@ class ConfigManager:
         default_model_ref = provider_data.get("default_model_ref")
 
         # Get model list
-        models = provider_data.get("models", [])
+        legacy_models = provider_data.get("models", [])
+        if not isinstance(legacy_models, list):
+            legacy_models = []
+        recommended_models = self._normalize_string_list(
+            provider_data.get("recommended_models", [])
+        )
+        models = self._build_preferred_models(
+            provider_name=provider_name,
+            recommended_models=recommended_models,
+            legacy_models=legacy_models,
+        )
 
         # Get default parameters
         defaults = provider_data.get("defaults", {})
@@ -252,6 +353,7 @@ class ConfigManager:
             default_model=default_model,
             default_model_ref=default_model_ref,
             models=models,
+            recommended_models=recommended_models,
             parameters=defaults,
             default_embedding_model=default_embedding_model,
             embedding_models=embedding_models,
