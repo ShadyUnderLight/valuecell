@@ -146,3 +146,57 @@ def test_resolve_model_not_found(tmp_path: Path, monkeypatch) -> None:
     response = client.post("/api/v1/models/resolve", json={"model": "unknown-model"})
 
     assert response.status_code == 404
+
+
+def test_validate_model_structured_legacy_id(tmp_path: Path, monkeypatch) -> None:
+    _prepare_config(tmp_path)
+    client = _build_client(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/api/v1/models/validate",
+        json={"provider": "openai", "model_id": "gpt-5"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    assert data["ok"] is False
+    assert data["status"] == "auth_failed"
+    assert data["model_id"] == "gpt-5"
+    assert data["canonical_ref"] == "openai/gpt-5.4"
+    assert data["resolved_provider"] == "openai"
+    assert data["resolved_model_id"] == "gpt-5-2025-08-07"
+    assert data["match_type"] == "legacy_id"
+
+    stages = data["stages"]
+    assert stages["catalog_known"] is True
+    assert stages["provider_enabled"] is True
+    assert stages["provider_configured"] is False
+    assert stages["resolved"] is True
+    assert stages["native_model_id_present"] is True
+    assert stages["reachable"] is False
+    assert stages["deprecated"] is False
+    assert stages["preview"] is False
+
+
+def test_validate_prefers_explicit_model_ref(tmp_path: Path, monkeypatch) -> None:
+    _prepare_config(tmp_path)
+    client = _build_client(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/api/v1/models/validate",
+        json={
+            "provider": "openai",
+            "model_ref": "openai/gpt-5.4",
+            "model_id": "gpt-5",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+
+    assert data["model_id"] == "gpt-5-2025-08-07"
+    assert data["canonical_ref"] == "openai/gpt-5.4"
+    assert data["resolved_model_id"] == "gpt-5-2025-08-07"
+    assert data["match_type"] == "canonical_ref"
+    assert data["stages"]["resolved"] is True
