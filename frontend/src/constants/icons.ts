@@ -27,6 +27,7 @@ export const MODEL_PROVIDER_ICONS = {
   google: GooglePng,
   azure: AzurePng,
   dashscope: DashScopePng,
+  minimax: OpenAiCompatiblePng,
   ollama: OllamaPng,
 };
 

@@ -362,3 +362,39 @@ def test_import_catalog_from_scan_selected_model_ids_only(
     )
     assert catalog_response.status_code == 200
     assert len(catalog_response.json()["data"]) == 1
+
+
+def test_minimax_provider_detail_and_validate_missing_api_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _prepare_config(tmp_path)
+    _write_provider_file(
+        tmp_path,
+        "minimax",
+        """
+connection:
+  base_url: https://api.minimax.io/v1
+  api_key_env: MINIMAX_API_KEY
+default_model: MiniMax-M2.7
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax M2.7
+""",
+    )
+    client = _build_client(tmp_path, monkeypatch)
+
+    detail_response = client.get("/api/v1/models/providers/minimax")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert detail["api_key_url"] == "https://platform.minimax.io/"
+    assert detail["default_model_id"] == "MiniMax-M2.7"
+
+    validate_response = client.post(
+        "/api/v1/models/validate",
+        json={"provider": "minimax", "model_id": "MiniMax-M2.7"},
+    )
+    assert validate_response.status_code == 200
+    data = validate_response.json()["data"]
+    assert data["ok"] is False
+    assert data["status"] == "auth_failed"
+    assert data["error"] == "API key is missing"

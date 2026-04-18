@@ -565,6 +565,14 @@ class DashScopeProvider(ModelProvider):
         )
 
 
+class MinimaxProvider(OpenAICompatibleProvider):
+    """MiniMax provider.
+
+    MiniMax provides an OpenAI-compatible chat API, so we reuse OpenAILike
+    behavior from OpenAICompatibleProvider.
+    """
+
+
 class OllamaProvider(ModelProvider):
     """Ollama model provider"""
 
@@ -609,6 +617,7 @@ class ModelFactory:
         "openai-compatible": OpenAICompatibleProvider,
         "deepseek": DeepSeekProvider,
         "dashscope": DashScopeProvider,
+        "minimax": MinimaxProvider,
         "ollama": OllamaProvider,
     }
 

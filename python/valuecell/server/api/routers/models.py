@@ -165,6 +165,7 @@ def create_models_router() -> APIRouter:
             "siliconflow": "https://cloud.siliconflow.cn/account/ak",
             "deepseek": "https://platform.deepseek.com/api_keys",
             "dashscope": "https://bailian.console.aliyun.com/#/home",
+            "minimax": "https://platform.minimax.io/",
             "ollama": None,
         }
         return mapping.get(provider)
@@ -1360,6 +1361,10 @@ def create_models_router() -> APIRouter:
                             f"{bu}/compatible-mode/v1/chat/completions",
                             "openai_like",
                         )
+                    if "minimax.io" in lower:
+                        return f"{bu}/v1/chat/completions" if not lower.endswith(
+                            "/v1"
+                        ) else f"{bu}/chat/completions", "openai_like"
                     # If base_url provided but host is unrecognized:
                     # - For openai-compatible, treat as generic OpenAI-like
                     # - For Google/Azure, ignore base_url and fall through to provider fallback
@@ -1403,6 +1408,8 @@ def create_models_router() -> APIRouter:
                         "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
                         "openai_like",
                     )
+                if provider == "minimax":
+                    return "https://api.minimax.io/v1/chat/completions", "openai_like"
                 if provider == "openai-compatible":
                     if base_url:
                         bu = _normalize_base_url(base_url)
@@ -1421,6 +1428,7 @@ def create_models_router() -> APIRouter:
                         "openrouter",
                         "deepseek",
                         "siliconflow",
+                        "minimax",
                         "azure",
                         "google",
                     }:
