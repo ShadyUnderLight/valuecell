@@ -95,10 +95,38 @@ class CheckModelRequest(BaseModel):
     model_id: Optional[str] = Field(
         None, description="Model id to check; defaults to provider's default model"
     )
+    model_ref: Optional[str] = Field(
+        None, description="Canonical model ref to check (preferred when available)"
+    )
     api_key: Optional[str] = Field(
         None, description="Temporary API key to use for this check (optional)"
     )
     # strict/live check removed; this endpoint now validates configuration only.
+
+
+class ModelValidationStages(BaseModel):
+    """Structured validation stages for UI-friendly diagnostics."""
+
+    catalog_known: bool = Field(False, description="Whether model exists in catalog")
+    provider_enabled: bool = Field(
+        False, description="Whether provider is enabled in configuration"
+    )
+    provider_configured: bool = Field(
+        False, description="Whether provider credentials/configuration are ready"
+    )
+    resolved: bool = Field(
+        False, description="Whether input resolved to a canonical catalog entry"
+    )
+    native_model_id_present: bool = Field(
+        False, description="Whether a provider-native model id is available"
+    )
+    reachable: bool = Field(
+        False, description="Whether live provider probe reached the model endpoint"
+    )
+    deprecated: bool = Field(
+        False, description="Whether resolved model is marked deprecated"
+    )
+    preview: bool = Field(False, description="Whether resolved model is preview/beta")
 
 
 class CheckModelResponse(BaseModel):
@@ -112,6 +140,22 @@ class CheckModelResponse(BaseModel):
         description="Status label like 'valid_config', 'reachable', 'timeout', 'request_failed'",
     )
     error: Optional[str] = Field(None, description="Error message if any")
+    canonical_ref: Optional[str] = Field(
+        None, description="Resolved canonical model ref when available"
+    )
+    resolved_provider: Optional[str] = Field(
+        None, description="Resolved provider when catalog resolution succeeds"
+    )
+    resolved_model_id: Optional[str] = Field(
+        None, description="Resolved provider-native model id when available"
+    )
+    match_type: Optional[
+        Literal["canonical_ref", "alias", "native_id", "legacy_id"]
+    ] = Field(None, description="Catalog resolver match type when available")
+    stages: ModelValidationStages = Field(
+        default_factory=ModelValidationStages,
+        description="Structured validation stages for UI consumption",
+    )
 
 
 class CatalogModelItem(BaseModel):

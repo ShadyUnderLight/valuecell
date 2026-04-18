@@ -11,7 +11,7 @@ from valuecell.config.constants import CONFIG_DIR
 from valuecell.config.loader import get_config_loader
 from valuecell.config.manager import get_config_manager
 from valuecell.config.model_catalog import ModelCatalogEntry
-from valuecell.config.model_resolver import ModelResolver
+from valuecell.config.model_resolver import ModelResolution, ModelResolver
 from valuecell.utils.env import get_system_env_path
 
 from ..schemas import SuccessResponse
@@ -20,6 +20,7 @@ from ..schemas.model import (
     CheckModelRequest,
     CheckModelResponse,
     CatalogModelItem,
+    ModelValidationStages,
     ModelItem,
     ModelProviderSummary,
     ProviderDetailData,
@@ -640,12 +641,66 @@ def create_models_router() -> APIRouter:
         summary="Check model availability",
         description=(
             "Perform a minimal live request to verify the model responds. "
-            "This endpoint does not validate provider configuration or API key presence."
+            "Response includes structured validation stages for UI diagnostics."
         ),
     )
     async def check_model(
         payload: CheckModelRequest,
     ) -> SuccessResponse[CheckModelResponse]:
+        def _clean_string(value: str | None) -> str | None:
+            if not isinstance(value, str):
+                return None
+            normalized = value.strip()
+            return normalized or None
+
+        def _resolve_validation_model_id(
+            *,
+            resolver: ModelResolver,
+            provider_name: str,
+            provider_default_model_ref: str | None,
+            provider_default_model_id: str | None,
+            explicit_model_ref: str | None,
+            explicit_model_id: str | None,
+        ) -> tuple[str | None, ModelResolution | None]:
+            if explicit_model_ref:
+                resolution = resolver.resolve(explicit_model_ref, provider=provider_name)
+                if resolution is not None:
+                    return resolution.entry.native_model_id, resolution
+
+            if explicit_model_id:
+                resolution = resolver.resolve(explicit_model_id, provider=provider_name)
+                return explicit_model_id, resolution
+
+            if provider_default_model_ref:
+                resolution = resolver.resolve(
+                    provider_default_model_ref, provider=provider_name
+                )
+                if resolution is not None:
+                    return resolution.entry.native_model_id, resolution
+
+            if provider_default_model_id:
+                resolution = resolver.resolve(
+                    provider_default_model_id, provider=provider_name
+                )
+                return provider_default_model_id, resolution
+
+            return None, None
+
+        def _is_provider_configured(
+            *,
+            provider_name: str,
+            is_enabled: bool,
+            api_key_value: str,
+            base_url_value: str,
+        ) -> bool:
+            if not is_enabled:
+                return False
+            if provider_name != "ollama" and not api_key_value:
+                return False
+            if provider_name in {"azure", "openai-compatible"} and not base_url_value:
+                return False
+            return True
+
         try:
             manager = get_config_manager()
             provider = payload.provider or manager.primary_provider
@@ -655,12 +710,27 @@ def create_models_router() -> APIRouter:
                     status_code=404, detail=f"Provider '{provider}' not found"
                 )
 
-            model_id = payload.model_id or cfg.default_model
+            api_key = (payload.api_key or cfg.api_key or "").strip()
+            base_url = (getattr(cfg, "base_url", None) or "").strip()
+            resolver = get_model_resolver()
+
+            model_id, resolution = _resolve_validation_model_id(
+                resolver=resolver,
+                provider_name=provider,
+                provider_default_model_ref=_clean_string(cfg.default_model_ref),
+                provider_default_model_id=_clean_string(cfg.default_model),
+                explicit_model_ref=_clean_string(payload.model_ref),
+                explicit_model_id=_clean_string(payload.model_id),
+            )
             if not model_id:
                 raise HTTPException(
                     status_code=400,
                     detail="Model id not specified and provider has no default",
                 )
+
+            normalized_status = ""
+            if resolution is not None and isinstance(resolution.entry.status, str):
+                normalized_status = resolution.entry.status.strip().lower()
 
             # Perform a minimal live request (ping) without configuration validation
             result = CheckModelResponse(
@@ -669,6 +739,27 @@ def create_models_router() -> APIRouter:
                 model_id=model_id,
                 status=None,
                 error=None,
+                canonical_ref=resolution.entry.ref if resolution else None,
+                resolved_provider=resolution.entry.provider if resolution else None,
+                resolved_model_id=(
+                    resolution.entry.native_model_id if resolution else None
+                ),
+                match_type=resolution.match_type if resolution else None,
+                stages=ModelValidationStages(
+                    catalog_known=resolution is not None,
+                    provider_enabled=bool(cfg.enabled),
+                    provider_configured=_is_provider_configured(
+                        provider_name=provider,
+                        is_enabled=bool(cfg.enabled),
+                        api_key_value=api_key,
+                        base_url_value=base_url,
+                    ),
+                    resolved=resolution is not None,
+                    native_model_id_present=bool(model_id),
+                    reachable=False,
+                    deprecated=normalized_status in {"deprecated", "retired", "sunset"},
+                    preview=normalized_status in {"preview", "beta", "experimental"},
+                ),
             )
             try:
                 import asyncio
@@ -682,8 +773,6 @@ def create_models_router() -> APIRouter:
 
             # Prefer a direct minimal request for OpenAI-compatible providers.
             # This avoids hidden fallbacks and validates API key/auth.
-            api_key = (payload.api_key or cfg.api_key or "").strip()
-            base_url = (getattr(cfg, "base_url", None) or "").strip()
             # Use direct request timeout only (no agent fallback)
             direct_timeout_s = 5.0
             if provider == "google":
@@ -750,6 +839,7 @@ def create_models_router() -> APIRouter:
                     return False
                 result.status = "reachable"
                 result.ok = True
+                result.stages.reachable = True
                 return True
 
             async def _direct_google_ping(endpoint: str) -> bool:
@@ -811,6 +901,7 @@ def create_models_router() -> APIRouter:
                     return False
                 result.status = "reachable"
                 result.ok = True
+                result.stages.reachable = True
                 return True
 
             def _normalize_base_url(url: str) -> str:
@@ -1032,5 +1123,19 @@ def create_models_router() -> APIRouter:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to check model: {e}")
+
+    @router.post(
+        "/validate",
+        response_model=SuccessResponse[CheckModelResponse],
+        summary="Validate model with structured diagnostics",
+        description=(
+            "Structured model validation suitable for UI diagnostics. "
+            "Includes staged checks and optional live reachability probe."
+        ),
+    )
+    async def validate_model(
+        payload: CheckModelRequest,
+    ) -> SuccessResponse[CheckModelResponse]:
+        return await check_model(payload)
 
     return router
