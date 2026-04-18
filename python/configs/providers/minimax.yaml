@@ -1,0 +1,43 @@
+# ============================================
+# MiniMax Provider Configuration
+# ============================================
+# MiniMax exposes an OpenAI-compatible chat endpoint.
+# Configure the API key via MINIMAX_API_KEY.
+
+name: MiniMax
+provider_type: minimax
+enabled: true
+
+connection:
+  base_url: https://api.minimax.io/v1
+  api_key_env: MINIMAX_API_KEY
+
+default_model: MiniMax-M2.7
+default_model_ref: minimax/minimax-m2.7
+
+recommended_models:
+  - minimax/minimax-m2.7
+  - minimax/minimax-m2.7-highspeed
+
+defaults:
+  temperature: 0.7
+  max_tokens: 4096
+
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax M2.7
+    context_length: 204800
+    description: MiniMax M2.7 model via OpenAI-compatible API
+    supported_inputs:
+      - text
+    supported_outputs:
+      - text
+
+  - id: MiniMax-M2.7-highspeed
+    name: MiniMax M2.7 Highspeed
+    context_length: 204800
+    description: MiniMax M2.7 highspeed model via OpenAI-compatible API
+    supported_inputs:
+      - text
+    supported_outputs:
+      - text

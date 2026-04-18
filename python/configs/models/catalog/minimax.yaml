@@ -1,0 +1,26 @@
+entries:
+  - ref: minimax/minimax-m2.7
+    provider: minimax
+    native_model_id: MiniMax-M2.7
+    display_name: MiniMax M2.7
+    aliases:
+      - minimax-m2.7
+      - minimaxm27
+    status: stable
+    visibility: default
+    metadata:
+      family: minimax-m2.7
+      tier: flagship
+
+  - ref: minimax/minimax-m2.7-highspeed
+    provider: minimax
+    native_model_id: MiniMax-M2.7-highspeed
+    display_name: MiniMax M2.7 Highspeed
+    aliases:
+      - minimax-m2.7-highspeed
+      - minimaxm27-highspeed
+    status: stable
+    visibility: default
+    metadata:
+      family: minimax-m2.7
+      tier: fast

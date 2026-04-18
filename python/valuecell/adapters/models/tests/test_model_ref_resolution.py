@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from valuecell.adapters.models.factory import ModelFactory
+from valuecell.adapters.models.factory import MinimaxProvider, ModelFactory
 from valuecell.config.loader import ConfigLoader
 from valuecell.config.manager import ConfigManager
 
@@ -119,3 +119,7 @@ def test_create_model_uses_provider_default_model_ref(
 
     assert result["provider"] == "openai"
     assert result["model_id"] == "gpt-5-2025-08-07"
+
+
+def test_model_factory_registers_minimax_provider() -> None:
+    assert ModelFactory._providers["minimax"] is MinimaxProvider
