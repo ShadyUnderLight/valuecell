@@ -1,8 +1,10 @@
 """Models API router: provide LLM model configuration defaults."""
 
 import os
+import re
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import yaml
 from fastapi import APIRouter, HTTPException, Query
@@ -12,11 +14,17 @@ from valuecell.config.loader import get_config_loader
 from valuecell.config.manager import get_config_manager
 from valuecell.config.model_catalog import ModelCatalogEntry
 from valuecell.config.model_resolver import ModelResolution, ModelResolver
+from valuecell.adapters.models.provider_inventory import get_provider_inventory_source
 from valuecell.utils.env import get_system_env_path
 
 from ..schemas import SuccessResponse
 from ..schemas.model import (
     AddModelRequest,
+    CatalogImportItem,
+    CatalogImportRequest,
+    CatalogImportResponse,
+    ScanCandidateItem,
+    ScanDiffReport,
     CheckModelRequest,
     CheckModelResponse,
     CatalogModelItem,
@@ -28,6 +36,7 @@ from ..schemas.model import (
     ProviderUpdateRequest,
     ResolveModelRequest,
     ResolveModelResponse,
+    ProviderScanResponse,
     SetDefaultModelRequest,
     SetDefaultProviderRequest,
 )
@@ -96,6 +105,12 @@ def create_models_router() -> APIRouter:
     def _provider_yaml(provider: str) -> Path:
         return CONFIG_DIR / "providers" / f"{provider}.yaml"
 
+    def _scan_yaml(provider: str) -> Path:
+        return CONFIG_DIR / "models" / "scans" / f"{provider}.yaml"
+
+    def _imported_catalog_yaml(provider: str) -> Path:
+        return CONFIG_DIR / "models" / "catalog" / f"{provider}.imported.yaml"
+
     def _load_yaml(path: Path) -> dict:
         if not path.exists():
             return {}
@@ -105,6 +120,10 @@ def create_models_router() -> APIRouter:
     def _write_yaml(path: Path, data: dict) -> None:
         with open(path, "w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+
+    def _write_yaml_with_parents(path: Path, data: dict) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_yaml(path, data)
 
     def _refresh_configs() -> None:
         loader = get_config_loader()
@@ -175,6 +194,127 @@ def create_models_router() -> APIRouter:
             if lowered_query in alias.lower():
                 return True
         return False
+
+    def _ensure_provider_exists(provider: str) -> None:
+        manager = get_config_manager()
+        cfg = manager.get_provider_config(provider)
+        if cfg is None:
+            raise HTTPException(
+                status_code=404, detail=f"Provider '{provider}' not found"
+            )
+
+    async def _to_scan_candidates(provider: str) -> List[dict[str, str | None]]:
+        _ensure_provider_exists(provider)
+        inventory_source = get_provider_inventory_source()
+        inventory_models = await inventory_source.list_models(provider=provider)
+
+        candidates: List[dict[str, str | None]] = []
+        for model in inventory_models:
+            model_id = model.model_id.strip()
+            if not model_id:
+                continue
+            model_name_raw = model.model_name
+            model_name = model_name_raw.strip() if model_name_raw else None
+            if model_name == "":
+                model_name = None
+            candidates.append({"model_id": model_id, "model_name": model_name})
+
+        return candidates
+
+    def _build_scan_response(
+        provider: str, scanned_at: str, candidates: List[dict[str, str | None]]
+    ) -> ProviderScanResponse:
+        resolver = get_model_resolver()
+        provider_entries = [
+            entry for entry in resolver.catalog.entries if entry.provider == provider
+        ]
+
+        by_native_id = {entry.native_model_id: entry for entry in provider_entries}
+        scan_ids = {candidate["model_id"] for candidate in candidates}
+        catalog_ids = {entry.native_model_id for entry in provider_entries}
+
+        new_model_ids = sorted(scan_ids - catalog_ids)
+        missing_model_ids = sorted(catalog_ids - scan_ids)
+        renamed_model_ids: List[str] = []
+        deprecated_model_ids: List[str] = []
+        response_candidates: List[ScanCandidateItem] = []
+
+        for candidate in candidates:
+            model_id = candidate["model_id"] or ""
+            model_name = candidate.get("model_name")
+            matched = by_native_id.get(model_id)
+            catalog_ref = matched.ref if matched is not None else None
+            catalog_status = matched.status if matched is not None else None
+            if matched is not None and catalog_status:
+                lowered_status = catalog_status.strip().lower()
+                if lowered_status in {"deprecated", "retired", "sunset"}:
+                    deprecated_model_ids.append(model_id)
+            if (
+                matched is not None
+                and isinstance(model_name, str)
+                and model_name.strip()
+                and model_name.strip() != matched.display_name
+            ):
+                renamed_model_ids.append(model_id)
+
+            response_candidates.append(
+                ScanCandidateItem(
+                    model_id=model_id,
+                    model_name=model_name,
+                    catalog_ref=catalog_ref,
+                    catalog_status=catalog_status,
+                )
+            )
+
+        return ProviderScanResponse(
+            provider=provider,
+            scanned_at=scanned_at,
+            candidates=response_candidates,
+            report=ScanDiffReport(
+                new_model_ids=new_model_ids,
+                missing_model_ids=missing_model_ids,
+                renamed_model_ids=sorted(set(renamed_model_ids)),
+                deprecated_model_ids=sorted(set(deprecated_model_ids)),
+            ),
+        )
+
+    def _slugify_ref_suffix(native_model_id: str) -> str:
+        lowered = native_model_id.strip().lower().replace("/", "-")
+        compacted = re.sub(r"[^a-z0-9._-]+", "-", lowered)
+        compacted = re.sub(r"-{2,}", "-", compacted).strip("-")
+        return compacted or "model"
+
+    def _next_available_ref(
+        provider: str, native_model_id: str, used_refs: set[str]
+    ) -> str:
+        base_ref = f"{provider}/{_slugify_ref_suffix(native_model_id)}"
+        if base_ref.lower() not in used_refs:
+            return base_ref
+
+        index = 2
+        while True:
+            candidate_ref = f"{base_ref}-{index}"
+            if candidate_ref.lower() not in used_refs:
+                return candidate_ref
+            index += 1
+
+    def _load_imported_catalog_entries(path: Path) -> List[Dict[str, Any]]:
+        loaded = _load_yaml(path)
+        if not loaded:
+            return []
+
+        if isinstance(loaded, dict):
+            entries = loaded.get("entries")
+            if isinstance(entries, list):
+                valid_entries = [entry for entry in entries if isinstance(entry, dict)]
+                return [dict(entry) for entry in valid_entries]
+            return []
+
+        if isinstance(loaded, list):
+            valid_entries = [entry for entry in loaded if isinstance(entry, dict)]
+            return [dict(entry) for entry in valid_entries]
+
+        return []
 
     @router.get(
         "/catalog",
@@ -356,6 +496,208 @@ def create_models_router() -> APIRouter:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get provider: {e}")
+
+    @router.post(
+        "/providers/{provider}/scan",
+        response_model=SuccessResponse[ProviderScanResponse],
+        summary="Scan provider models into scan state",
+        description=(
+            "Collect provider model candidates and persist them as scan results. "
+            "Scan results are not auto-imported into the official catalog."
+        ),
+    )
+    async def scan_provider_models(
+        provider: str,
+    ) -> SuccessResponse[ProviderScanResponse]:
+        try:
+            scanned_at = datetime.now(timezone.utc).isoformat()
+            candidates = await _to_scan_candidates(provider=provider)
+            data = _build_scan_response(
+                provider=provider, scanned_at=scanned_at, candidates=candidates
+            )
+
+            scan_path = _scan_yaml(provider)
+            scan_doc = {
+                "provider": data.provider,
+                "scanned_at": data.scanned_at,
+                "candidates": [
+                    {
+                        "model_id": candidate.model_id,
+                        "model_name": candidate.model_name,
+                        "catalog_ref": candidate.catalog_ref,
+                        "catalog_status": candidate.catalog_status,
+                    }
+                    for candidate in data.candidates
+                ],
+                "report": {
+                    "new_model_ids": data.report.new_model_ids,
+                    "missing_model_ids": data.report.missing_model_ids,
+                    "renamed_model_ids": data.report.renamed_model_ids,
+                    "deprecated_model_ids": data.report.deprecated_model_ids,
+                },
+            }
+            _write_yaml_with_parents(scan_path, scan_doc)
+            return SuccessResponse.create(
+                data=data, msg=f"Scanned {len(data.candidates)} provider models"
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to scan provider '{provider}': {e}"
+            )
+
+    @router.post(
+        "/catalog/import",
+        response_model=SuccessResponse[CatalogImportResponse],
+        summary="Import selected scan candidates into catalog",
+        description=(
+            "Promote selected scan candidates into an imported catalog file. "
+            "Only explicitly selected candidates are imported."
+        ),
+    )
+    async def import_catalog_entries(
+        payload: CatalogImportRequest,
+    ) -> SuccessResponse[CatalogImportResponse]:
+        try:
+            provider = payload.provider.strip().lower()
+            if not provider:
+                raise HTTPException(status_code=400, detail="Provider is required")
+
+            selected_model_ids = {
+                model_id.strip() for model_id in payload.model_ids if model_id.strip()
+            }
+            if not selected_model_ids:
+                raise HTTPException(
+                    status_code=400, detail="At least one model_id must be provided"
+                )
+
+            # Ensure provider exists independently from scan state.
+            _ensure_provider_exists(provider=provider)
+
+            scan_doc = _load_yaml(_scan_yaml(provider))
+            if not isinstance(scan_doc, dict):
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "No scan state found for provider. "
+                        "Run provider scan before importing."
+                    ),
+                )
+            scan_candidates_raw = scan_doc.get("candidates")
+            if not isinstance(scan_candidates_raw, list):
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "No scan candidates found for provider. "
+                        "Run provider scan before importing."
+                    ),
+                )
+
+            scan_candidates: Dict[str, Dict[str, str | None]] = {}
+            for candidate in scan_candidates_raw:
+                if not isinstance(candidate, dict):
+                    continue
+                model_id_raw = candidate.get("model_id")
+                if not isinstance(model_id_raw, str):
+                    continue
+                model_id = model_id_raw.strip()
+                if not model_id:
+                    continue
+                model_name_raw = candidate.get("model_name")
+                model_name = (
+                    model_name_raw.strip()
+                    if isinstance(model_name_raw, str) and model_name_raw.strip()
+                    else None
+                )
+                scan_candidates[model_id] = {
+                    "model_id": model_id,
+                    "model_name": model_name,
+                }
+
+            missing_from_scan_model_ids = sorted(
+                [model_id for model_id in selected_model_ids if model_id not in scan_candidates]
+            )
+
+            resolver = get_model_resolver()
+            provider_entries = [
+                entry for entry in resolver.catalog.entries if entry.provider == provider
+            ]
+            existing_by_native_id = {
+                entry.native_model_id: entry for entry in provider_entries
+            }
+            skipped_existing_model_ids = sorted(
+                [
+                    model_id
+                    for model_id in selected_model_ids
+                    if model_id in existing_by_native_id
+                ]
+            )
+
+            imported_path = _imported_catalog_yaml(provider)
+            imported_entries = _load_imported_catalog_entries(imported_path)
+
+            used_refs = {entry.ref.lower() for entry in resolver.catalog.entries}
+            for entry in imported_entries:
+                ref_value = entry.get("ref")
+                if isinstance(ref_value, str):
+                    used_refs.add(ref_value.strip().lower())
+
+            imported_items: List[CatalogImportItem] = []
+            for model_id in sorted(selected_model_ids):
+                if model_id in missing_from_scan_model_ids:
+                    continue
+                if model_id in skipped_existing_model_ids:
+                    continue
+
+                candidate = scan_candidates[model_id]
+                display_name = candidate.get("model_name") or model_id
+                ref = _next_available_ref(
+                    provider=provider, native_model_id=model_id, used_refs=used_refs
+                )
+                used_refs.add(ref.lower())
+
+                entry_doc: Dict[str, Any] = {
+                    "ref": ref,
+                    "provider": provider,
+                    "native_model_id": model_id,
+                    "display_name": display_name,
+                    "aliases": [],
+                    "status": "preview",
+                    "visibility": "hidden",
+                    "metadata": {"source": "imported"},
+                }
+                imported_entries.append(entry_doc)
+                imported_items.append(
+                    CatalogImportItem(
+                        canonical_ref=ref,
+                        provider=provider,
+                        native_model_id=model_id,
+                        display_name=display_name,
+                        source="imported",
+                    )
+                )
+
+            imported_entries = sorted(
+                imported_entries, key=lambda entry: str(entry.get("ref", "")).lower()
+            )
+            _write_yaml_with_parents(imported_path, {"entries": imported_entries})
+
+            data = CatalogImportResponse(
+                provider=provider,
+                imported=imported_items,
+                skipped_existing_model_ids=skipped_existing_model_ids,
+                missing_from_scan_model_ids=missing_from_scan_model_ids,
+            )
+            return SuccessResponse.create(
+                data=data, msg=f"Imported {len(imported_items)} catalog entries"
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to import catalog entries: {e}"
+            )
 
     @router.put(
         "/providers/{provider}/config",
