@@ -182,3 +182,70 @@ class ResolveModelResponse(BaseModel):
     match_type: Literal["canonical_ref", "alias", "native_id", "legacy_id"] = Field(
         ..., description="How the resolver matched the input"
     )
+
+
+class ScanCandidateItem(BaseModel):
+    model_id: str = Field(..., description="Provider-native model id")
+    model_name: Optional[str] = Field(None, description="Provider model name")
+    catalog_ref: Optional[str] = Field(
+        None, description="Matched catalog ref if candidate already exists"
+    )
+    catalog_status: Optional[str] = Field(
+        None, description="Matched catalog status if candidate already exists"
+    )
+
+
+class ScanDiffReport(BaseModel):
+    new_model_ids: List[str] = Field(
+        default_factory=list, description="Scanned ids not currently in catalog"
+    )
+    missing_model_ids: List[str] = Field(
+        default_factory=list, description="Catalog ids not present in current scan"
+    )
+    renamed_model_ids: List[str] = Field(
+        default_factory=list,
+        description="Scanned ids whose names differ from catalog display names",
+    )
+    deprecated_model_ids: List[str] = Field(
+        default_factory=list, description="Scanned ids marked deprecated in catalog"
+    )
+
+
+class ProviderScanResponse(BaseModel):
+    provider: str = Field(..., description="Provider key")
+    scanned_at: str = Field(..., description="UTC scan timestamp in ISO-8601 format")
+    candidates: List[ScanCandidateItem] = Field(
+        default_factory=list, description="Scanned provider candidates"
+    )
+    report: ScanDiffReport = Field(
+        default_factory=ScanDiffReport, description="Scan diff report against catalog"
+    )
+
+
+class CatalogImportRequest(BaseModel):
+    provider: str = Field(..., description="Provider key for this import")
+    model_ids: List[str] = Field(
+        default_factory=list, description="Scanned model ids selected for import"
+    )
+
+
+class CatalogImportItem(BaseModel):
+    canonical_ref: str = Field(..., description="Canonical catalog ref")
+    provider: str = Field(..., description="Provider key")
+    native_model_id: str = Field(..., description="Provider-native model id")
+    display_name: str = Field(..., description="Catalog display name")
+    source: Literal["imported"] = Field(..., description="Catalog source marker")
+
+
+class CatalogImportResponse(BaseModel):
+    provider: str = Field(..., description="Provider key")
+    imported: List[CatalogImportItem] = Field(
+        default_factory=list, description="Imported catalog entries"
+    )
+    skipped_existing_model_ids: List[str] = Field(
+        default_factory=list, description="Selected model ids already present in catalog"
+    )
+    missing_from_scan_model_ids: List[str] = Field(
+        default_factory=list,
+        description="Selected model ids that were not found in latest scan state",
+    )
