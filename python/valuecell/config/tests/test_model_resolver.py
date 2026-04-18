@@ -90,6 +90,44 @@ def test_resolve_legacy_id_from_provider_compatibility(tmp_path: Path) -> None:
     assert resolved.match_type == "legacy_id"
 
 
+def test_resolve_legacy_id_keeps_legacy_compat_with_recommended_models(
+    tmp_path: Path,
+) -> None:
+    _write_catalog_file(
+        tmp_path,
+        "openai.yaml",
+        """
+entries:
+  - ref: openai/gpt-5.4
+    provider: openai
+    native_model_id: gpt-5-2025-08-07
+    display_name: GPT-5.4
+    metadata:
+      legacy_ids:
+        - gpt-5
+""",
+    )
+    _write_provider_file(
+        tmp_path,
+        "openai",
+        """
+default_model_ref: openai/gpt-5.4
+default_model: gpt-5
+recommended_models:
+  - openai/gpt-5.4
+models:
+  - id: gpt-5
+    name: GPT-5 Legacy
+""",
+    )
+
+    resolver = ModelResolver.from_config(config_dir=tmp_path)
+    resolved = resolver.resolve("gpt-5")
+
+    assert resolved is not None
+    assert resolved.entry.ref == "openai/gpt-5.4"
+    assert resolved.match_type == "legacy_id"
+
 
 def test_duplicate_native_model_id_same_provider_rejected(tmp_path: Path) -> None:
     _write_catalog_file(

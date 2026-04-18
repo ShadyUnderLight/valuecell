@@ -203,6 +203,30 @@ class ConfigLoader:
         # String (default)
         return value
 
+    def _normalize_provider_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize provider model-ref fields while keeping legacy fields intact."""
+        normalized = config.copy()
+
+        default_model_ref = normalized.get("default_model_ref")
+        if isinstance(default_model_ref, str):
+            normalized_default_model_ref = default_model_ref.strip()
+            normalized["default_model_ref"] = (
+                normalized_default_model_ref or None
+            )
+
+        raw_recommended_models = normalized.get("recommended_models")
+        if isinstance(raw_recommended_models, list):
+            recommended_models: list[str] = []
+            for value in raw_recommended_models:
+                if not isinstance(value, str):
+                    continue
+                normalized_value = value.strip()
+                if normalized_value:
+                    recommended_models.append(normalized_value)
+            normalized["recommended_models"] = recommended_models
+
+        return normalized
+
     def load_config(self, config_name: str = "config") -> Dict[str, Any]:
         """
         Load main configuration with environment-specific overrides
@@ -280,6 +304,8 @@ class ConfigLoader:
         # Apply environment overrides if specified
         if "env_overrides" in config:
             config = self._apply_env_overrides(config)
+
+        config = self._normalize_provider_config(config)
 
         # Cache the result
         self._cache[cache_key] = config
