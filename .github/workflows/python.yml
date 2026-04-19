@@ -76,8 +76,11 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run tests
+      - name: Run core tests
         run: uv run pytest valuecell/core/ --cov=valuecell.core --cov-report=xml --cov-report=term
+
+      - name: Run product smoke tests
+        run: uv run pytest valuecell/server/api/tests/test_app_smoke.py
 
       - name: Check coverage
         run: |
