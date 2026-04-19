@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from valuecell.adapters.models.factory import MinimaxProvider, ModelFactory
+from valuecell.adapters.models.factory import (
+    MinimaxCnProvider,
+    MinimaxProvider,
+    ModelFactory,
+)
 from valuecell.config.loader import ConfigLoader
 from valuecell.config.manager import ConfigManager
 
@@ -123,3 +127,7 @@ def test_create_model_uses_provider_default_model_ref(
 
 def test_model_factory_registers_minimax_provider() -> None:
     assert ModelFactory._providers["minimax"] is MinimaxProvider
+
+
+def test_model_factory_registers_minimax_cn_provider() -> None:
+    assert ModelFactory._providers["minimax_cn"] is MinimaxCnProvider

@@ -573,6 +573,14 @@ class MinimaxProvider(OpenAICompatibleProvider):
     """
 
 
+class MinimaxCnProvider(OpenAICompatibleProvider):
+    """MiniMax CN provider.
+
+    MiniMax CN (国内站) provides an OpenAI-compatible chat API, so we reuse
+    OpenAILike behavior from OpenAICompatibleProvider.
+    """
+
+
 class OllamaProvider(ModelProvider):
     """Ollama model provider"""
 
@@ -618,6 +626,7 @@ class ModelFactory:
         "deepseek": DeepSeekProvider,
         "dashscope": DashScopeProvider,
         "minimax": MinimaxProvider,
+        "minimax_cn": MinimaxCnProvider,
         "ollama": OllamaProvider,
     }
 

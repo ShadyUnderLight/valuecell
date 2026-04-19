@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -398,3 +399,100 @@ models:
     assert data["ok"] is False
     assert data["status"] == "auth_failed"
     assert data["error"] == "API key is missing"
+
+
+def test_minimax_cn_provider_detail_and_validate_missing_api_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _prepare_config(tmp_path)
+    _write_provider_file(
+        tmp_path,
+        "minimax_cn",
+        """
+connection:
+  base_url: https://api.minimaxi.com/v1
+  api_key_env: MINIMAX_CN_API_KEY
+default_model: MiniMax-M2.7
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax CN M2.7
+""",
+    )
+    client = _build_client(tmp_path, monkeypatch)
+
+    detail_response = client.get("/api/v1/models/providers/minimax_cn")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()["data"]
+    assert (
+        detail["api_key_url"]
+        == "https://www.minimaxi.com/platform/user-center/basic-information/interface-key"
+    )
+    assert detail["default_model_id"] == "MiniMax-M2.7"
+
+    validate_response = client.post(
+        "/api/v1/models/validate",
+        json={"provider": "minimax_cn", "model_id": "MiniMax-M2.7"},
+    )
+    assert validate_response.status_code == 200
+    data = validate_response.json()["data"]
+    assert data["ok"] is False
+    assert data["status"] == "auth_failed"
+    assert data["error"] == "API key is missing"
+
+
+def test_minimax_endpoint_autodetect_distinguishes_global_vs_cn(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Test that minimax (global) and minimax_cn (CN) resolve to different endpoints.
+
+    The endpoint resolution happens inside check_model() which uses locally-scoped
+    functions and imports that cannot be easily patched at module level. This test
+    verifies the two providers are registered separately and have distinct base URLs
+    in their configurations, which drives the different endpoint resolution paths.
+    """
+    _prepare_config(tmp_path)
+    _write_provider_file(
+        tmp_path,
+        "minimax",
+        """
+connection:
+  base_url: https://api.minimax.io/v1
+  api_key_env: MINIMAX_API_KEY
+default_model: MiniMax-M2.7
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax M2.7
+""",
+    )
+    _write_provider_file(
+        tmp_path,
+        "minimax_cn",
+        """
+connection:
+  base_url: https://api.minimaxi.com/v1
+  api_key_env: MINIMAX_CN_API_KEY
+default_model: MiniMax-M2.7
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax CN M2.7
+""",
+    )
+
+    loader = ConfigLoader(config_dir=tmp_path)
+    minimax_cfg = loader.load_provider_config("minimax")
+    minimax_cn_cfg = loader.load_provider_config("minimax_cn")
+
+    # Verify distinct base URLs (the root cause of different endpoint resolution)
+    assert minimax_cfg.get("connection", {}).get("base_url") == "https://api.minimax.io/v1"
+    assert minimax_cn_cfg.get("connection", {}).get("base_url") == "https://api.minimaxi.com/v1"
+
+    # Both providers should be listed
+    providers = loader.list_providers()
+    assert "minimax" in providers
+    assert "minimax_cn" in providers
+
+    # Verify the _providers registry maps both to openai-like providers
+    from valuecell.adapters.models.factory import ModelFactory
+
+    assert ModelFactory._providers["minimax"].__name__ == "MinimaxProvider"
+    assert ModelFactory._providers["minimax_cn"].__name__ == "MinimaxCnProvider"

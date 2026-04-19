@@ -128,3 +128,42 @@ entries:
         {"id": "gpt-4.1-legacy", "name": "GPT-4.1 Legacy"},
         {"id": "custom-local-model", "name": "Custom Local Model"},
     ]
+
+
+def test_get_provider_config_supports_minimax_cn(tmp_path: Path, monkeypatch) -> None:
+    _write_base_config(tmp_path)
+    _write(
+        tmp_path / "providers" / "minimax_cn.yaml",
+        """
+connection:
+  base_url: https://api.minimaxi.com/v1
+  api_key_env: MINIMAX_CN_API_KEY
+default_model_ref: minimax_cn/minimax-m2.7
+default_model: MiniMax-M2.7
+recommended_models:
+  - minimax_cn/minimax-m2.7
+models:
+  - id: MiniMax-M2.7
+    name: MiniMax CN Legacy
+""",
+    )
+    _write(
+        tmp_path / "models" / "catalog" / "minimax_cn.yaml",
+        """
+entries:
+  - ref: minimax_cn/minimax-m2.7
+    provider: minimax_cn
+    native_model_id: MiniMax-M2.7
+    display_name: MiniMax CN M2.7
+""",
+    )
+    monkeypatch.setenv("MINIMAX_CN_API_KEY", "test-minimax-cn-key")
+
+    manager = ConfigManager(loader=ConfigLoader(config_dir=tmp_path))
+    config = manager.get_provider_config("minimax_cn")
+
+    assert config is not None
+    assert config.base_url == "https://api.minimaxi.com/v1"
+    assert config.api_key == "test-minimax-cn-key"
+    assert config.default_model_ref == "minimax_cn/minimax-m2.7"
+    assert config.models[0] == {"id": "MiniMax-M2.7", "name": "MiniMax CN M2.7"}
