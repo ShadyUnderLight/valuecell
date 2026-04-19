@@ -443,13 +443,7 @@ models:
 def test_minimax_endpoint_autodetect_distinguishes_global_vs_cn(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Test that minimax (global) and minimax_cn (CN) resolve to different endpoints.
-
-    The endpoint resolution happens inside check_model() which uses locally-scoped
-    functions and imports that cannot be easily patched at module level. This test
-    verifies the two providers are registered separately and have distinct base URLs
-    in their configurations, which drives the different endpoint resolution paths.
-    """
+    """Directly exercise the router-level probe path and capture the resolved endpoint."""
     _prepare_config(tmp_path)
     _write_provider_file(
         tmp_path,
@@ -477,22 +471,59 @@ models:
     name: MiniMax CN M2.7
 """,
     )
+    client = _build_client(tmp_path, monkeypatch)
 
-    loader = ConfigLoader(config_dir=tmp_path)
-    minimax_cfg = loader.load_provider_config("minimax")
-    minimax_cn_cfg = loader.load_provider_config("minimax_cn")
+    captured_urls: list[str] = []
 
-    # Verify distinct base URLs (the root cause of different endpoint resolution)
-    assert minimax_cfg.get("connection", {}).get("base_url") == "https://api.minimax.io/v1"
-    assert minimax_cn_cfg.get("connection", {}).get("base_url") == "https://api.minimaxi.com/v1"
+    class _FakeResponse:
+        status_code = 200
+        text = ""
 
-    # Both providers should be listed
-    providers = loader.list_providers()
-    assert "minimax" in providers
-    assert "minimax_cn" in providers
+        @staticmethod
+        def json() -> dict:
+            return {"choices": [{"message": {"content": "pong"}}]}
 
-    # Verify the _providers registry maps both to openai-like providers
-    from valuecell.adapters.models.factory import ModelFactory
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
 
-    assert ModelFactory._providers["minimax"].__name__ == "MinimaxProvider"
-    assert ModelFactory._providers["minimax_cn"].__name__ == "MinimaxCnProvider"
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        async def post(self, url: str, headers=None, json=None, params=None):
+            captured_urls.append(url)
+            return _FakeResponse()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", _FakeAsyncClient)
+
+    global_response = client.post(
+        "/api/v1/models/check",
+        json={
+            "provider": "minimax",
+            "model_id": "MiniMax-M2.7",
+            "api_key": "test-key",
+        },
+    )
+    assert global_response.status_code == 200
+    assert global_response.json()["data"]["ok"] is True
+
+    cn_response = client.post(
+        "/api/v1/models/check",
+        json={
+            "provider": "minimax_cn",
+            "model_id": "MiniMax-M2.7",
+            "api_key": "test-key",
+        },
+    )
+    assert cn_response.status_code == 200
+    assert cn_response.json()["data"]["ok"] is True
+
+    assert captured_urls == [
+        "https://api.minimax.io/v1/chat/completions",
+        "https://api.minimaxi.com/v1/chat/completions",
+    ]
