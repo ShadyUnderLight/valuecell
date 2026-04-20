@@ -3,6 +3,8 @@
 from .base import (
     AppInfoData,
     BaseResponse,
+    ConfigHealthData,
+    ConfigHealthIssueData,
     ErrorResponse,
     HealthCheckData,
     StatusCode,
@@ -68,6 +70,8 @@ __all__ = [
     "ErrorResponse",
     "AppInfoData",
     "HealthCheckData",
+    "ConfigHealthData",
+    "ConfigHealthIssueData",
     # I18n schemas
     "I18nConfigData",
     "SupportedLanguage",

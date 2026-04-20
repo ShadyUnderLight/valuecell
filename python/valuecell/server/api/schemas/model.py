@@ -243,7 +243,8 @@ class CatalogImportResponse(BaseModel):
         default_factory=list, description="Imported catalog entries"
     )
     skipped_existing_model_ids: List[str] = Field(
-        default_factory=list, description="Selected model ids already present in catalog"
+        default_factory=list,
+        description="Selected model ids already present in catalog",
     )
     missing_from_scan_model_ids: List[str] = Field(
         default_factory=list,

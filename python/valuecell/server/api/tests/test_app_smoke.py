@@ -42,3 +42,11 @@ def test_app_product_path_smoke(monkeypatch, tmp_path: Path) -> None:
     system_health_payload = system_health_response.json()
     assert system_health_payload["code"] == 0
     assert system_health_payload["data"]["status"] == "healthy"
+
+    config_health_response = client.get("/api/v1/system/config-health")
+    assert config_health_response.status_code == 200
+    config_health_payload = config_health_response.json()
+    assert config_health_payload["code"] == 0
+    assert config_health_payload["data"]["status"] in {"healthy", "warning", "error"}
+    assert isinstance(config_health_payload["data"]["enabled_providers"], list)
+    assert isinstance(config_health_payload["data"]["issues"], list)

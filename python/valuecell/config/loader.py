@@ -210,9 +210,7 @@ class ConfigLoader:
         default_model_ref = normalized.get("default_model_ref")
         if isinstance(default_model_ref, str):
             normalized_default_model_ref = default_model_ref.strip()
-            normalized["default_model_ref"] = (
-                normalized_default_model_ref or None
-            )
+            normalized["default_model_ref"] = normalized_default_model_ref or None
 
         raw_recommended_models = normalized.get("recommended_models")
         if isinstance(raw_recommended_models, list):

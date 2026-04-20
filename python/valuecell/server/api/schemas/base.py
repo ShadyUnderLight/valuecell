@@ -73,3 +73,25 @@ class HealthCheckData(BaseModel):
     status: str = Field(..., description="Service status")
     version: str = Field(..., description="Service version")
     timestamp: Optional[datetime] = Field(None, description="Check timestamp")
+
+
+class ConfigHealthIssueData(BaseModel):
+    """Single configuration health issue."""
+
+    level: str = Field(..., description="Issue severity level")
+    scope: str = Field(..., description="Issue scope")
+    message: str = Field(..., description="Human-readable issue message")
+
+
+class ConfigHealthData(BaseModel):
+    """Configuration health summary."""
+
+    status: str = Field(..., description="Overall configuration health status")
+    primary_provider: str = Field(..., description="Resolved primary provider")
+    enabled_providers: list[str] = Field(
+        ..., description="Providers with valid credentials"
+    )
+    issues: list[ConfigHealthIssueData] = Field(
+        default_factory=list,
+        description="Configuration issues detected during health check",
+    )

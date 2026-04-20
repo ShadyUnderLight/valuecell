@@ -53,9 +53,7 @@ entries:
     return ConfigManager(loader=loader)
 
 
-def test_create_model_prefers_explicit_model_ref(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_create_model_prefers_explicit_model_ref(tmp_path: Path, monkeypatch) -> None:
     manager = _prepare_config(tmp_path)
     factory = ModelFactory(config_manager=manager)
     monkeypatch.setattr(

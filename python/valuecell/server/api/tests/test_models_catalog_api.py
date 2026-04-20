@@ -1,5 +1,4 @@
 from pathlib import Path
-from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -113,7 +112,9 @@ def _build_client(tmp_path: Path, monkeypatch) -> TestClient:
 
 
 class _FakeProviderInventorySource:
-    def __init__(self, items_by_provider: dict[str, list[ProviderInventoryModel]]) -> None:
+    def __init__(
+        self, items_by_provider: dict[str, list[ProviderInventoryModel]]
+    ) -> None:
         self._items_by_provider = items_by_provider
 
     async def list_models(self, provider: str) -> list[ProviderInventoryModel]:
@@ -152,9 +153,7 @@ def test_resolve_native_id_via_api(tmp_path: Path, monkeypatch) -> None:
     _prepare_config(tmp_path)
     client = _build_client(tmp_path, monkeypatch)
 
-    response = client.post(
-        "/api/v1/models/resolve", json={"model": "gpt-5-2025-08-07"}
-    )
+    response = client.post("/api/v1/models/resolve", json={"model": "gpt-5-2025-08-07"})
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -257,7 +256,10 @@ def test_validate_invalid_explicit_model_ref_does_not_fallback(
 
     assert data["ok"] is False
     assert data["status"] == "unresolved_model_ref"
-    assert data["error"] == "Explicit model_ref 'openai/does-not-exist' could not be resolved"
+    assert (
+        data["error"]
+        == "Explicit model_ref 'openai/does-not-exist' could not be resolved"
+    )
     assert data["model_id"] == "openai/does-not-exist"
     assert data["canonical_ref"] is None
     assert data["resolved_provider"] is None

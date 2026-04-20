@@ -11,7 +11,7 @@ Provides a clean API for:
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from valuecell.config.loader import ConfigLoader, get_config_loader
 from valuecell.config.model_resolver import ModelResolver
@@ -79,6 +79,25 @@ class AgentConfig:
     api_keys: Dict[str, Dict[str, Any]]
     capabilities: Dict[str, Any]
     extra_config: Dict[str, Any]
+
+
+@dataclass
+class ConfigHealthIssue:
+    """Single configuration health issue."""
+
+    level: Literal["warning", "error"]
+    scope: str
+    message: str
+
+
+@dataclass
+class ConfigHealthReport:
+    """High-level configuration health summary."""
+
+    status: Literal["healthy", "warning", "error"]
+    primary_provider: str
+    enabled_providers: List[str]
+    issues: List[ConfigHealthIssue]
 
 
 class ConfigManager:
@@ -546,6 +565,44 @@ class ConfigManager:
             return []
 
         return provider_config.models
+
+    def get_config_health(self) -> ConfigHealthReport:
+        """Summarize high-level configuration health for runtime checks."""
+        issues: List[ConfigHealthIssue] = []
+        primary_provider = self.primary_provider
+        enabled_providers = self.get_enabled_providers()
+
+        primary_valid, primary_error = self.validate_provider(primary_provider)
+        if not primary_valid and primary_error:
+            issues.append(
+                ConfigHealthIssue(
+                    level="error",
+                    scope=f"provider:{primary_provider}",
+                    message=primary_error,
+                )
+            )
+
+        if not enabled_providers:
+            issues.append(
+                ConfigHealthIssue(
+                    level="warning",
+                    scope="providers",
+                    message="No enabled providers with valid credentials were detected.",
+                )
+            )
+
+        status: Literal["healthy", "warning", "error"] = "healthy"
+        if any(issue.level == "error" for issue in issues):
+            status = "error"
+        elif issues:
+            status = "warning"
+
+        return ConfigHealthReport(
+            status=status,
+            primary_provider=primary_provider,
+            enabled_providers=enabled_providers,
+            issues=issues,
+        )
 
 
 # ============================================
