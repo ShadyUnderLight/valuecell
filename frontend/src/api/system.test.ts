@@ -58,4 +58,26 @@ describe("normalizeConfigHealth", () => {
       ],
     });
   });
+
+  test("drops issue entries that are missing required shape", () => {
+    expect(
+      normalizeConfigHealth({
+        status: "error",
+        primary_provider: "openai",
+        enabled_providers: ["openai"],
+        issues: [
+          {
+            scope: "provider:openai",
+            message: "Missing OPENAI_API_KEY",
+          },
+          "bad-entry",
+        ],
+      }),
+    ).toEqual({
+      status: "error",
+      primary_provider: "openai",
+      enabled_providers: ["openai"],
+      issues: [],
+    });
+  });
 });

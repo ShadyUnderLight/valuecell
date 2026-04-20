@@ -25,4 +25,19 @@ describe("settingsStorePersistOptions", () => {
       language: "zh_CN",
     });
   });
+
+  test("sanitizes malformed current-version snapshots through persist migrate", async () => {
+    const migrated = await settingsStorePersistOptions.migrate?.(
+      {
+        stockColorMode: "BLUE_UP_PURPLE_DOWN",
+        language: 42,
+      },
+      1,
+    );
+
+    expect(migrated).toEqual({
+      stockColorMode: "GREEN_UP_RED_DOWN",
+      language: "en",
+    });
+  });
 });
