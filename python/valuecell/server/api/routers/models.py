@@ -490,6 +490,8 @@ def create_models_router() -> APIRouter:
                 base_url=cfg.base_url,
                 is_default=(cfg.name == manager.primary_provider),
                 default_model_id=cfg.default_model,
+                default_model_ref=cfg.default_model_ref,
+                recommended_model_refs=cfg.recommended_models or [],
                 api_key_url=_api_key_url_for(cfg.name),
                 models=models_entries,
             )
@@ -786,6 +788,8 @@ def create_models_router() -> APIRouter:
                 base_url=cfg.base_url,
                 is_default=(cfg.name == manager.primary_provider),
                 default_model_id=cfg.default_model,
+                default_model_ref=cfg.default_model_ref,
+                recommended_model_refs=cfg.recommended_models or [],
                 models=models_items,
             )
             return SuccessResponse.create(
@@ -974,6 +978,8 @@ def create_models_router() -> APIRouter:
                 base_url=cfg.base_url,
                 is_default=(cfg.name == manager.primary_provider),
                 default_model_id=cfg.default_model,
+                default_model_ref=cfg.default_model_ref,
+                recommended_model_refs=cfg.recommended_models or [],
                 models=models_items,
             )
             return SuccessResponse.create(

@@ -47,7 +47,26 @@ class ProviderDetailData(BaseModel):
     api_key: Optional[str] = Field(None, description="API key if available")
     base_url: Optional[str] = Field(None, description="API base URL")
     is_default: bool = Field(..., description="Whether this is the primary provider")
-    default_model_id: Optional[str] = Field(None, description="Default model id")
+    default_model_id: Optional[str] = Field(
+        None,
+        description=(
+            "Provider-native default model id used by the settings UI and "
+            "default-model mutation endpoints"
+        ),
+    )
+    default_model_ref: Optional[str] = Field(
+        None,
+        description=(
+            "Canonical default model ref when the provider config exposes a "
+            "shared cross-provider model-selection contract"
+        ),
+    )
+    recommended_model_refs: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Canonical recommended model refs for shared provider/model selection"
+        ),
+    )
     api_key_url: Optional[str] = Field(
         None, description="URL to obtain/apply for the provider's API key"
     )
