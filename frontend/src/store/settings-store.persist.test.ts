@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { SETTINGS_PERSIST_VERSION_DOMAIN } from "./persist-version-domains";
 import {
   SETTINGS_STORE_NAME,
   settingsStorePersistOptions,
@@ -7,7 +8,13 @@ import {
 describe("settingsStorePersistOptions", () => {
   test("wires schema versioned migration metadata", () => {
     expect(settingsStorePersistOptions.name).toBe(SETTINGS_STORE_NAME);
+    expect(settingsStorePersistOptions.name).toBe(
+      SETTINGS_PERSIST_VERSION_DOMAIN.storageKey,
+    );
     expect(settingsStorePersistOptions.version).toBe(1);
+    expect(settingsStorePersistOptions.version).toBe(
+      SETTINGS_PERSIST_VERSION_DOMAIN.schemaVersion,
+    );
     expect(typeof settingsStorePersistOptions.migrate).toBe("function");
   });
 

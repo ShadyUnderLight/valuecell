@@ -77,6 +77,31 @@ The system will auto-detect available providers based on configured API keys.
 
 ## Configuration System Architecture
 
+## Schema / Version Domains
+
+ValueCell now treats configuration evolution as a small set of explicit domains instead of ad-hoc one-off fixes.
+
+| Domain | Owner | Schema key | Versioning mode | Current version | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `frontend.persist.settings` | frontend | `valuecell-settings` | explicit | `1` | Zustand persisted settings store. Bump the persist version when the on-disk shape changes. |
+| `frontend.persist.system` | frontend | `valuecell-system-store` | explicit | `1` | Zustand persisted auth/system store. Bump the persist version when the persisted snapshot contract changes. |
+| `backend.runtime.config-health` | backend | `system.config-health` | normalized-contract | n/a | Runtime summary contract exposed by `/api/v1/system/config-health`. Keep payload fields stable and normalize malformed data at the API boundary. |
+| `backend.config.provider` | backend | `providers/*.yaml` | normalized-contract | n/a | Provider YAML keeps legacy compatibility, but load-time normalization owns fields like `default_model_ref` and `recommended_models`. |
+| `backend.config.agent` | backend | `agents/*.yaml` | normalized-contract | n/a | Agent YAML evolves via loader merge rules and `env_overrides`, not a per-file schema version number. |
+
+### Naming Rules
+
+- **Domain IDs** use `<owner>.<surface>.<domain>` naming, for example `frontend.persist.settings`.
+- **Schema keys** should point at the real storage or config boundary (`valuecell-settings`, `providers/*.yaml`, `system.config-health`).
+- Use **explicit** versioning only when data is persisted across app restarts and migration order matters.
+- Use **normalized-contract** when the boundary is load-time normalized and backward compatibility is enforced by sanitizing/normalizing inputs instead of bumping a stored version field.
+
+### How to Extend the Map
+
+- New frontend persisted stores must get a new explicit domain entry before adding another standalone `*_VERSION` constant.
+- New backend config payloads should first choose whether they are an explicit persisted schema or a normalized contract.
+- If a boundary changes shape but keeps the same normalized contract, extend the normalizer/tests instead of inventing a fake version number.
+
 ### File Structure
 
 ```

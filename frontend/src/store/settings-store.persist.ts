@@ -1,4 +1,5 @@
 import type { PersistOptions } from "zustand/middleware";
+import { SETTINGS_PERSIST_VERSION_DOMAIN } from "./persist-version-domains";
 import {
   migrateSettingsPersistedState,
   SETTINGS_STORE_VERSION,
@@ -10,7 +11,7 @@ export interface SettingsStorePersistedState {
   language: LanguageCode;
 }
 
-export const SETTINGS_STORE_NAME = "valuecell-settings";
+export const SETTINGS_STORE_NAME = SETTINGS_PERSIST_VERSION_DOMAIN.storageKey;
 
 export const settingsStorePersistOptions: Pick<
   PersistOptions<SettingsStorePersistedState>,

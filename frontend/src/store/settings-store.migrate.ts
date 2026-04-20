@@ -1,7 +1,9 @@
+import { SETTINGS_PERSIST_VERSION_DOMAIN } from "./persist-version-domains";
 import type { LanguageCode, StockColorMode } from "./settings-store.types";
 
 export const DEFAULT_LANGUAGE = "en";
-export const SETTINGS_STORE_VERSION = 1;
+export const SETTINGS_STORE_VERSION =
+  SETTINGS_PERSIST_VERSION_DOMAIN.schemaVersion;
 export const DEFAULT_STOCK_COLOR_MODE: StockColorMode = "GREEN_UP_RED_DOWN";
 
 export const normalizeLanguageCode = (language: unknown): LanguageCode => {
