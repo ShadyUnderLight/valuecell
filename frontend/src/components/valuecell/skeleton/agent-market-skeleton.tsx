@@ -76,4 +76,4 @@ function AgentMarketSkeleton({
   );
 }
 
-export { AgentMarketSkeleton, AgentCardSkeleton };
+export { AgentCardSkeleton, AgentMarketSkeleton };

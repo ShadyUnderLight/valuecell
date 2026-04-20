@@ -19,9 +19,13 @@ describe("SSEClient", () => {
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(encoder.encode('data: {"type":"chunk","content":"hel'));
+        controller.enqueue(
+          encoder.encode('data: {"type":"chunk","content":"hel'),
+        );
         controller.enqueue(encoder.encode('lo"}\n\n'));
-        controller.enqueue(encoder.encode('data: {"type":"done","content":"ok"}\n\n'));
+        controller.enqueue(
+          encoder.encode('data: {"type":"done","content":"ok"}\n\n'),
+        );
         controller.close();
       },
     });
@@ -91,9 +95,6 @@ describe("SSEClient", () => {
     });
 
     expect(error.message).toBe("Handshake timeout");
-    expect(states).toEqual([
-      SSEReadyState.CONNECTING,
-      SSEReadyState.CLOSED,
-    ]);
+    expect(states).toEqual([SSEReadyState.CONNECTING, SSEReadyState.CLOSED]);
   });
 });

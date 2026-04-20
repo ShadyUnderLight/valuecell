@@ -139,8 +139,8 @@ function StockMenuListItem({
 
 export {
   StockMenu,
-  StockMenuHeader,
   StockMenuGroup,
   StockMenuGroupHeader,
+  StockMenuHeader,
   StockMenuListItem,
 };
