@@ -119,4 +119,4 @@ export const withTrack = <T extends keyof TrackingEvents>(
   };
 };
 
-export { tracker, type TrackerConfig, type TrackingParams };
+export { type TrackerConfig, type TrackingParams, tracker };

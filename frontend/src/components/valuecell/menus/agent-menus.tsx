@@ -153,10 +153,10 @@ function AgentMenuCard({
 
 export {
   AgentMenu,
-  AgentMenuContent,
-  AgentMenuSuffix,
-  AgentMenuIcon,
-  AgentMenuTitle,
-  AgentMenuDescription,
   AgentMenuCard,
+  AgentMenuContent,
+  AgentMenuDescription,
+  AgentMenuIcon,
+  AgentMenuSuffix,
+  AgentMenuTitle,
 };

@@ -430,7 +430,8 @@ export function ModelDetail({ provider }: ModelDetailProps) {
                       <span className="font-normal text-foreground text-sm">
                         {model.model_name}
                       </span>
-                      {model.catalogStatus && model.catalogStatus !== "stable" ? (
+                      {model.catalogStatus &&
+                      model.catalogStatus !== "stable" ? (
                         <span className="text-muted-foreground text-xs uppercase">
                           {model.catalogStatus}
                         </span>
@@ -440,7 +441,9 @@ export function ModelDetail({ provider }: ModelDetailProps) {
                     <div className="flex items-center gap-3">
                       <Switch
                         className="cursor-pointer"
-                        checked={model.model_id === providerDetail.default_model_id}
+                        checked={
+                          model.model_id === providerDetail.default_model_id
+                        }
                         disabled={isBusy}
                         onCheckedChange={() =>
                           handleSetDefaultModel(model.model_id)

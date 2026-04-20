@@ -1,3 +1,4 @@
+import { Children, isValidElement } from "react";
 import {
   AgentMenuCard,
   AgentMenuContent,
@@ -98,9 +99,13 @@ function AgentSuggestionItem({
         {suggestion.avatars && suggestion.avatars.length > 0 && (
           <AgentMenuSuffix>
             <div className="flex items-center">
-              {suggestion.avatars.map((avatar, index) => (
+              {Children.toArray(suggestion.avatars).map((avatar) => (
                 <div
-                  key={`${suggestion.id}-avatar-${index}`}
+                  key={
+                    isValidElement(avatar) && avatar.key != null
+                      ? String(avatar.key)
+                      : `${suggestion.id}-${String(avatar)}`
+                  }
                   className="relative -mr-2 size-6 overflow-hidden rounded-full border-2 border-background last:mr-0"
                 >
                   {avatar}
@@ -146,4 +151,4 @@ function AgentSuggestionsList({
   );
 }
 
-export { AgentSuggestionsList, AgentSuggestionsHeader, AgentSuggestionItem };
+export { AgentSuggestionItem, AgentSuggestionsHeader, AgentSuggestionsList };

@@ -276,9 +276,9 @@ const PortfolioPositionsGroup: FC<PortfolioPositionsGroupProps> = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {positions.map((position, index) => (
+              {positions.map((position) => (
                 <PositionRow
-                  key={`${position.symbol}-${index}`}
+                  key={`${position.symbol}-${position.type}-${position.leverage}-${position.quantity}`}
                   position={position}
                 />
               ))}

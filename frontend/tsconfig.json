@@ -43,6 +43,10 @@
     "src",
     ".react-router/types/**/*"
   ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

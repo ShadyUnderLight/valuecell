@@ -71,4 +71,4 @@ function SparklineStockListSkeleton({
   );
 }
 
-export { SparklineStockListSkeleton, SparklineStockItemSkeleton };
+export { SparklineStockItemSkeleton, SparklineStockListSkeleton };
