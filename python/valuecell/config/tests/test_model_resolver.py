@@ -162,7 +162,6 @@ models:
         ModelResolver.from_config(config_dir=tmp_path)
 
 
-
 def test_duplicate_legacy_id_same_provider_rejected(tmp_path: Path) -> None:
     _write_catalog_file(
         tmp_path,

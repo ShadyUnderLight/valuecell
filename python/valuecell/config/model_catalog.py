@@ -234,9 +234,7 @@ class ModelCatalogLoader:
             seen_refs[entry.normalized_ref] = entry.ref
 
             provider_aliases = aliases_by_provider.setdefault(entry.provider, {})
-            for alias, normalized_alias in zip(
-                entry.aliases, entry.normalized_aliases
-            ):
+            for alias, normalized_alias in zip(entry.aliases, entry.normalized_aliases):
                 previous_alias = provider_aliases.get(normalized_alias)
                 if previous_alias is not None:
                     raise ValueError(

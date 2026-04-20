@@ -380,7 +380,9 @@ def create_models_router() -> APIRouter:
                 ]
 
             data = [_to_catalog_item(entry) for entry in entries]
-            return SuccessResponse.create(data=data, msg=f"Retrieved {len(data)} models")
+            return SuccessResponse.create(
+                data=data, msg=f"Retrieved {len(data)} models"
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail=f"Failed to list model catalog: {e}"
@@ -618,12 +620,18 @@ def create_models_router() -> APIRouter:
                 }
 
             missing_from_scan_model_ids = sorted(
-                [model_id for model_id in selected_model_ids if model_id not in scan_candidates]
+                [
+                    model_id
+                    for model_id in selected_model_ids
+                    if model_id not in scan_candidates
+                ]
             )
 
             resolver = get_model_resolver()
             provider_entries = [
-                entry for entry in resolver.catalog.entries if entry.provider == provider
+                entry
+                for entry in resolver.catalog.entries
+                if entry.provider == provider
             ]
             existing_by_native_id = {
                 entry.native_model_id: entry for entry in provider_entries
@@ -1007,7 +1015,9 @@ def create_models_router() -> APIRouter:
             explicit_model_id: str | None,
         ) -> tuple[str | None, ModelResolution | None, bool]:
             if explicit_model_ref:
-                resolution = resolver.resolve(explicit_model_ref, provider=provider_name)
+                resolution = resolver.resolve(
+                    explicit_model_ref, provider=provider_name
+                )
                 if resolution is not None:
                     return resolution.entry.native_model_id, resolution, False
                 return explicit_model_ref, None, True
@@ -1097,7 +1107,9 @@ def create_models_router() -> APIRouter:
                         preview=False,
                     ),
                 )
-                return SuccessResponse.create(data=result, msg="Model validation completed")
+                return SuccessResponse.create(
+                    data=result, msg="Model validation completed"
+                )
 
             if not model_id:
                 raise HTTPException(

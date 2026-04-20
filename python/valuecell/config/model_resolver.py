@@ -44,8 +44,12 @@ class ModelResolver:
 
         self._entries_by_ref: Dict[str, ModelCatalogEntry] = {}
         self._entries_by_provider_alias: Dict[str, Dict[str, ModelCatalogEntry]] = {}
-        self._entries_by_provider_native_id: Dict[str, Dict[str, ModelCatalogEntry]] = {}
-        self._entries_by_provider_legacy_id: Dict[str, Dict[str, ModelCatalogEntry]] = {}
+        self._entries_by_provider_native_id: Dict[
+            str, Dict[str, ModelCatalogEntry]
+        ] = {}
+        self._entries_by_provider_legacy_id: Dict[
+            str, Dict[str, ModelCatalogEntry]
+        ] = {}
 
         self._build_indexes(catalog.entries)
 
