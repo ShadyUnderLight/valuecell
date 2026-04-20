@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { SYSTEM_PERSIST_VERSION_DOMAIN } from "./persist-version-domains";
 import {
   INITIAL_SYSTEM_INFO,
   migrateSystemPersistedState,
@@ -10,7 +11,13 @@ import {
 describe("systemStorePersistOptions", () => {
   test("wires schema versioned migration metadata", () => {
     expect(systemStorePersistOptions.name).toBe(SYSTEM_STORE_NAME);
+    expect(systemStorePersistOptions.name).toBe(
+      SYSTEM_PERSIST_VERSION_DOMAIN.storageKey,
+    );
     expect(systemStorePersistOptions.version).toBe(SYSTEM_STORE_VERSION);
+    expect(systemStorePersistOptions.version).toBe(
+      SYSTEM_PERSIST_VERSION_DOMAIN.schemaVersion,
+    );
     expect(typeof systemStorePersistOptions.migrate).toBe("function");
   });
 

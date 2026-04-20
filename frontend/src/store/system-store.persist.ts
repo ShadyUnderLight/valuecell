@@ -1,8 +1,9 @@
 import type { PersistOptions } from "zustand/middleware";
 import type { SystemInfo } from "@/types/system";
+import { SYSTEM_PERSIST_VERSION_DOMAIN } from "./persist-version-domains";
 
-export const SYSTEM_STORE_NAME = "valuecell-system-store";
-export const SYSTEM_STORE_VERSION = 1;
+export const SYSTEM_STORE_NAME = SYSTEM_PERSIST_VERSION_DOMAIN.storageKey;
+export const SYSTEM_STORE_VERSION = SYSTEM_PERSIST_VERSION_DOMAIN.schemaVersion;
 
 export type SystemStorePersistedState = SystemInfo;
 
