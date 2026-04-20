@@ -58,4 +58,11 @@ describe("migrateSettingsPersistedState", () => {
 
     expect(migrateSettingsPersistedState(current, 1)).toEqual(current);
   });
+
+  test("sanitizes missing current-version fields to safe defaults", () => {
+    expect(migrateSettingsPersistedState(undefined, 1)).toEqual({
+      stockColorMode: "GREEN_UP_RED_DOWN",
+      language: DEFAULT_LANGUAGE,
+    });
+  });
 });

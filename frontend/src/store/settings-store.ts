@@ -14,11 +14,8 @@ import {
 } from "@/constants/stock";
 import i18n from "@/i18n";
 import type { StockChangeType } from "@/types/stock";
-import {
-  DEFAULT_LANGUAGE,
-  migrateSettingsPersistedState,
-  SETTINGS_STORE_VERSION,
-} from "./settings-store.migrate";
+import { DEFAULT_LANGUAGE } from "./settings-store.migrate";
+import { settingsStorePersistOptions } from "./settings-store.persist";
 import type { LanguageCode, StockColorMode } from "./settings-store.types";
 
 export type { LanguageCode, StockColorMode };
@@ -62,9 +59,7 @@ export const useSettingsStore = create<SettingsStoreState>()(
           i18n.changeLanguage(language);
         },
       }),
-      {
-        name: "valuecell-settings",
-      },
+      settingsStorePersistOptions,
     ),
     { name: "SettingsStore", enabled: import.meta.env.DEV },
   ),
