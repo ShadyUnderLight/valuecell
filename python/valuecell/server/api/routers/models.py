@@ -9,12 +9,12 @@ from typing import Any, Dict, List
 import yaml
 from fastapi import APIRouter, HTTPException, Query
 
+from valuecell.adapters.models.provider_inventory import get_provider_inventory_source
 from valuecell.config.constants import CONFIG_DIR
 from valuecell.config.loader import get_config_loader
 from valuecell.config.manager import get_config_manager
 from valuecell.config.model_catalog import ModelCatalogEntry
 from valuecell.config.model_resolver import ModelResolution, ModelResolver
-from valuecell.adapters.models.provider_inventory import get_provider_inventory_source
 from valuecell.utils.env import get_system_env_path
 
 from ..schemas import SuccessResponse
@@ -23,20 +23,20 @@ from ..schemas.model import (
     CatalogImportItem,
     CatalogImportRequest,
     CatalogImportResponse,
-    ScanCandidateItem,
-    ScanDiffReport,
+    CatalogModelItem,
     CheckModelRequest,
     CheckModelResponse,
-    CatalogModelItem,
-    ModelValidationStages,
     ModelItem,
     ModelProviderSummary,
+    ModelValidationStages,
     ProviderDetailData,
     ProviderModelEntry,
+    ProviderScanResponse,
     ProviderUpdateRequest,
     ResolveModelRequest,
     ResolveModelResponse,
-    ProviderScanResponse,
+    ScanCandidateItem,
+    ScanDiffReport,
     SetDefaultModelRequest,
     SetDefaultProviderRequest,
 )

@@ -16,7 +16,6 @@ from yaml import YAMLError
 
 from valuecell.config.constants import CONFIG_DIR
 
-
 DEFAULT_MODEL_CATALOG_DIR = Path("models") / "catalog"
 
 

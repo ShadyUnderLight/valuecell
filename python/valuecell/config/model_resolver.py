@@ -15,7 +15,6 @@ from valuecell.config.model_catalog import (
     ModelCatalogLoader,
 )
 
-
 MatchType = Literal["canonical_ref", "alias", "native_id", "legacy_id"]
 
 
