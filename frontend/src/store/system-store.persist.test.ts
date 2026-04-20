@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   INITIAL_SYSTEM_INFO,
+  migrateSystemPersistedState,
   SYSTEM_STORE_NAME,
   SYSTEM_STORE_VERSION,
-  migrateSystemPersistedState,
   systemStorePersistOptions,
 } from "./system-store.persist";
 
