@@ -41,14 +41,15 @@ export const migrateSettingsPersistedState = (
       >
     | undefined,
   version: number,
-) => {
+): {
+  stockColorMode: StockColorMode;
+  language: LanguageCode;
+} => {
   if (version >= SETTINGS_STORE_VERSION) {
-    return (
-      persistedState ?? {
-        stockColorMode: DEFAULT_STOCK_COLOR_MODE,
-        language: DEFAULT_LANGUAGE as LanguageCode,
-      }
-    );
+    return {
+      stockColorMode: normalizeStockColorMode(persistedState?.stockColorMode),
+      language: normalizeLanguageCode(persistedState?.language),
+    };
   }
 
   return {
