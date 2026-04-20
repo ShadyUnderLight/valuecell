@@ -14,10 +14,15 @@ import {
 } from "@/constants/stock";
 import i18n from "@/i18n";
 import type { StockChangeType } from "@/types/stock";
+import {
+  DEFAULT_LANGUAGE,
+  migrateSettingsPersistedState,
+  SETTINGS_STORE_VERSION,
+} from "./settings-store.migrate";
+import type { LanguageCode, StockColorMode } from "./settings-store.types";
 
-export type StockColorMode = "GREEN_UP_RED_DOWN" | "RED_UP_GREEN_DOWN";
-export type LanguageCode = "en" | "zh_CN" | "zh_TW" | "ja";
-export const DEFAULT_LANGUAGE = "en";
+export type { LanguageCode, StockColorMode };
+export { DEFAULT_LANGUAGE };
 
 interface SettingsStoreState {
   stockColorMode: StockColorMode;
