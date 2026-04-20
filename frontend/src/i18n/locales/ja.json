@@ -36,6 +36,12 @@
     "updates": {
       "title": "アプリアップデート",
       "check": "アップデートを確認"
+    },
+    "configHealth": {
+      "title": "設定の確認が必要です",
+      "description": "ValueCell で設定の問題が見つかりました。provider のチェックや実行が失敗する前に修正してください。",
+      "descriptionWithProvider": "{{provider}} の設定に問題があります。provider のチェックや実行が失敗する前に修正してください。",
+      "openModels": "モデル設定を開く"
     }
   },
   "auth": {

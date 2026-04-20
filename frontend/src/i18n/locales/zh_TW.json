@@ -36,6 +36,12 @@
     "updates": {
       "title": "應用程式更新",
       "check": "檢查更新"
+    },
+    "configHealth": {
+      "title": "配置需要處理",
+      "description": "ValueCell 發現了配置問題，建議先修復再繼續做 provider 檢查或實際運行。",
+      "descriptionWithProvider": "ValueCell 發現 {{provider}} 的配置存在問題，建議先修復再繼續做 provider 檢查或實際運行。",
+      "openModels": "打開模型設定"
     }
   },
   "auth": {

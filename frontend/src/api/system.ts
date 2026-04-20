@@ -59,6 +59,29 @@ export const normalizeConfigHealth = (value: unknown): ConfigHealth => {
   };
 };
 
+export const getVisibleConfigHealthIssues = (
+  configHealth: ConfigHealth | null | undefined,
+) => {
+  if (!configHealth || configHealth.status === "healthy") {
+    return [];
+  }
+
+  return configHealth.issues.filter((issue) => issue.message.trim().length > 0);
+};
+
+export const useConfigHealth = () => {
+  return useQuery({
+    queryKey: API_QUERY_KEYS.SYSTEM.configHealth,
+    queryFn: () =>
+      apiClient.get<ApiResponse<ConfigHealth>>(
+        `${VALUECELL_BACKEND_URL}/system/config-health`,
+      ),
+    select: (data) => normalizeConfigHealth(data.data),
+    retry: false,
+    staleTime: 30_000,
+  });
+};
+
 export const useBackendHealth = () => {
   return useQuery({
     queryKey: ["backend-health"],

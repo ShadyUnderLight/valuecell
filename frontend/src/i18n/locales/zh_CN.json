@@ -36,6 +36,12 @@
     "updates": {
       "title": "应用更新",
       "check": "检查更新"
+    },
+    "configHealth": {
+      "title": "配置需要处理",
+      "description": "ValueCell 发现了配置问题，建议先修复再继续做 provider 检查或实际运行。",
+      "descriptionWithProvider": "ValueCell 发现 {{provider}} 的配置存在问题，建议先修复再继续做 provider 检查或实际运行。",
+      "openModels": "打开模型设置"
     }
   },
   "auth": {
