@@ -48,6 +48,7 @@ const STRATEGY_QUERY_KEYS = {
 const SYSTEM_QUERY_KEYS = {
   strategyList: queryKeyFn(["system", "strategy", "list"]),
   strategyDetail: queryKeyFn(["system", "strategy", "detail"]),
+  configHealth: ["system", "config-health"],
 } as const;
 
 export const API_QUERY_KEYS = {

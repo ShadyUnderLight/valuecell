@@ -56,3 +56,16 @@ export interface StrategyReport {
   prompt_name: string;
   trading_mode: Strategy["trading_mode"];
 }
+
+export interface ConfigHealthIssue {
+  level: "warning" | "error";
+  scope: string;
+  message: string;
+}
+
+export interface ConfigHealth {
+  status: "healthy" | "warning" | "error";
+  primary_provider: string;
+  enabled_providers: string[];
+  issues: ConfigHealthIssue[];
+}
