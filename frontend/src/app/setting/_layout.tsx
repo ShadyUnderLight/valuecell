@@ -9,6 +9,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
+import { ConfigHealthBanner } from "./components/config-health-banner";
 
 export default function SettingLayout() {
   const { t } = useTranslation();
@@ -75,8 +76,11 @@ export default function SettingLayout() {
       </aside>
 
       {/* Right content area */}
-      <main className="flex flex-1 overflow-hidden rounded-tr-xl rounded-br-xl bg-card">
-        <Outlet />
+      <main className="flex flex-1 flex-col gap-4 overflow-hidden rounded-tr-xl rounded-br-xl bg-card p-4">
+        <ConfigHealthBanner />
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl bg-card">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

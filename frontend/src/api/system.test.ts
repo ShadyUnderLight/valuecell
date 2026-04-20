@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeConfigHealth } from "./system";
+import { getVisibleConfigHealthIssues, normalizeConfigHealth } from "./system";
 
 describe("normalizeConfigHealth", () => {
   test("keeps valid config health payload stable", () => {
@@ -79,5 +79,53 @@ describe("normalizeConfigHealth", () => {
       enabled_providers: ["openai"],
       issues: [],
     });
+  });
+});
+
+describe("getVisibleConfigHealthIssues", () => {
+  test("returns no issues for healthy config health", () => {
+    expect(
+      getVisibleConfigHealthIssues({
+        status: "healthy",
+        primary_provider: "openai",
+        enabled_providers: ["openai"],
+        issues: [
+          {
+            level: "warning",
+            scope: "provider:openai",
+            message: "Missing OPENAI_API_KEY",
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  test("keeps only actionable warning or error messages", () => {
+    expect(
+      getVisibleConfigHealthIssues({
+        status: "warning",
+        primary_provider: "openai",
+        enabled_providers: [],
+        issues: [
+          {
+            level: "warning",
+            scope: "providers",
+            message:
+              "No enabled providers with valid credentials were detected.",
+          },
+          {
+            level: "error",
+            scope: "provider:openai",
+            message: "",
+          },
+        ],
+      }),
+    ).toEqual([
+      {
+        level: "warning",
+        scope: "providers",
+        message: "No enabled providers with valid credentials were detected.",
+      },
+    ]);
   });
 });

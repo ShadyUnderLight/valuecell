@@ -36,6 +36,12 @@
     "updates": {
       "title": "App Updates",
       "check": "Check for Update"
+    },
+    "configHealth": {
+      "title": "Configuration needs attention",
+      "description": "ValueCell found configuration issues that should be fixed before provider checks or runs fail.",
+      "descriptionWithProvider": "ValueCell found configuration issues for {{provider}} that should be fixed before provider checks or runs fail.",
+      "openModels": "Open Models settings"
     }
   },
   "auth": {
