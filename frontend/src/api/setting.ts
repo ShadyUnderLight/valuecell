@@ -17,6 +17,42 @@ import type {
   ProviderModelInfo,
 } from "@/types/setting";
 
+export const normalizeProviderDetail = (value: unknown): ProviderDetail => {
+  const data = (value ?? {}) as Partial<ProviderDetail>;
+
+  return {
+    api_key: typeof data.api_key === "string" ? data.api_key : "",
+    api_key_url: typeof data.api_key_url === "string" ? data.api_key_url : "",
+    base_url: typeof data.base_url === "string" ? data.base_url : "",
+    is_default: data.is_default === true,
+    default_model_id:
+      typeof data.default_model_id === "string" ? data.default_model_id : "",
+    default_model_ref:
+      typeof data.default_model_ref === "string"
+        ? data.default_model_ref
+        : undefined,
+    recommended_model_refs: Array.isArray(data.recommended_model_refs)
+      ? data.recommended_model_refs.filter(
+          (modelRef): modelRef is string => typeof modelRef === "string",
+        )
+      : [],
+    models: Array.isArray(data.models)
+      ? data.models
+          .filter(
+            (model): model is ProviderModelInfo =>
+              typeof model === "object" &&
+              model !== null &&
+              typeof (model as { model_id?: unknown }).model_id === "string",
+          )
+          .map((model) => ({
+            model_id: model.model_id,
+            model_name:
+              typeof model.model_name === "string" ? model.model_name : "",
+          }))
+      : [],
+  };
+};
+
 export const useGetMemoryList = () => {
   return useQuery({
     queryKey: API_QUERY_KEYS.SETTING.memoryList,
@@ -59,7 +95,7 @@ export const useGetModelProviderDetail = (provider: string | undefined) => {
       apiClient.get<ApiResponse<ProviderDetail>>(
         `/models/providers/${provider}`,
       ),
-    select: (data) => data.data,
+    select: (data) => normalizeProviderDetail(data.data),
   });
 };
 
@@ -212,10 +248,13 @@ export const useGetSortedModelProviders = () => {
         apiClient.get<ApiResponse<ProviderDetail>>(
           `/models/providers/${p.provider}`,
         ),
-      select: (data: ApiResponse<ProviderDetail>) => ({
-        provider: p.provider,
-        hasApiKey: !!data.data?.api_key,
-      }),
+      select: (data: ApiResponse<ProviderDetail>) => {
+        const providerDetail = normalizeProviderDetail(data.data);
+        return {
+          provider: p.provider,
+          hasApiKey: !!providerDetail.api_key,
+        };
+      },
       staleTime: 5 * 60 * 1000,
     })),
   });

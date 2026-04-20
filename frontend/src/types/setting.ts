@@ -17,7 +17,12 @@ export type ProviderDetail = {
   api_key_url: string;
   base_url: string;
   is_default: boolean;
+  // Provider-native default model id used by current settings mutations/UI.
   default_model_id: string;
+  // Canonical shared-contract field for cross-provider model selection.
+  default_model_ref?: string;
+  // Canonical recommended refs from backend provider config.
+  recommended_model_refs: string[];
   models: ProviderModelInfo[];
 };
 
