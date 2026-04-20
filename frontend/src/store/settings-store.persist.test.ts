@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
-  settingsStorePersistOptions,
   SETTINGS_STORE_NAME,
+  settingsStorePersistOptions,
 } from "./settings-store.persist";
 
 describe("settingsStorePersistOptions", () => {
