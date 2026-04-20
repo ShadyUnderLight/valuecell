@@ -6,6 +6,7 @@ import { type ApiResponse, apiClient } from "@/lib/api-client";
 import { useLanguage } from "@/store/settings-store";
 import { useSystemStore } from "@/store/system-store";
 import type {
+  ConfigHealth,
   StrategyDetail,
   StrategyRankItem,
   StrategyReport,
@@ -22,6 +23,41 @@ export interface DefaultTickersResponse {
   region: string;
   tickers: DefaultTicker[];
 }
+
+export const normalizeConfigHealth = (value: unknown): ConfigHealth => {
+  const data = (value ?? {}) as Partial<ConfigHealth>;
+  const issues = Array.isArray(data.issues)
+    ? data.issues
+        .filter(
+          (issue): issue is ConfigHealth["issues"][number] =>
+            typeof issue === "object" &&
+            issue !== null &&
+            (issue as { level?: unknown }).level !== undefined,
+        )
+        .map((issue): ConfigHealth["issues"][number] => ({
+          level: issue.level === "error" ? "error" : "warning",
+          scope: typeof issue.scope === "string" ? issue.scope : "unknown",
+          message: typeof issue.message === "string" ? issue.message : "",
+        }))
+    : [];
+
+  return {
+    status:
+      data.status === "error" ||
+      data.status === "warning" ||
+      data.status === "healthy"
+        ? data.status
+        : "healthy",
+    primary_provider:
+      typeof data.primary_provider === "string" ? data.primary_provider : "",
+    enabled_providers: Array.isArray(data.enabled_providers)
+      ? data.enabled_providers.filter(
+          (provider): provider is string => typeof provider === "string",
+        )
+      : [],
+    issues,
+  };
+};
 
 export const useBackendHealth = () => {
   return useQuery({
