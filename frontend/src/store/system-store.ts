@@ -3,26 +3,18 @@ import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { useShallow } from "zustand/shallow";
 import type { SystemInfo } from "@/types/system";
 import { TauriStoreState } from "./plugin/tauri-store-state";
-
-const STORAGE_KEY = "valuecell-system-store";
+import {
+  INITIAL_SYSTEM_INFO,
+  SYSTEM_STORE_NAME,
+  systemStorePersistOptions,
+} from "./system-store.persist";
 
 interface SystemStoreState extends SystemInfo {
   setSystemInfo: (info: Partial<SystemInfo>) => void;
   clearSystemInfo: () => void;
 }
 
-const INITIAL_SYSTEM_INFO: SystemInfo = {
-  access_token: "",
-  refresh_token: "",
-  id: "",
-  email: "",
-  name: "",
-  avatar: "",
-  created_at: "",
-  updated_at: "",
-};
-
-const store = new TauriStoreState(STORAGE_KEY);
+const store = new TauriStoreState(SYSTEM_STORE_NAME);
 await store.init();
 
 export const useSystemStore = create<SystemStoreState>()(
@@ -34,7 +26,7 @@ export const useSystemStore = create<SystemStoreState>()(
         clearSystemInfo: () => set(INITIAL_SYSTEM_INFO),
       }),
       {
-        name: STORAGE_KEY,
+        ...systemStorePersistOptions,
         storage: createJSONStorage(() => store),
       },
     ),
