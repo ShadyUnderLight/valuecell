@@ -33,6 +33,30 @@ describe("systemStorePersistOptions", () => {
       name: "Asata",
     });
   });
+
+  test("sanitizes malformed current-version snapshots through persist migrate", async () => {
+    const migrated = await systemStorePersistOptions.migrate?.(
+      {
+        access_token: ["token"],
+        refresh_token: "refresh",
+        id: "user-1",
+        email: 123,
+        name: "Asata",
+        avatar: { url: "https://example.com/avatar.png" },
+        created_at: null,
+        updated_at: "2026-04-20T08:05:00Z",
+      },
+      1,
+    );
+
+    expect(migrated).toEqual({
+      ...INITIAL_SYSTEM_INFO,
+      refresh_token: "refresh",
+      id: "user-1",
+      name: "Asata",
+      updated_at: "2026-04-20T08:05:00Z",
+    });
+  });
 });
 
 describe("migrateSystemPersistedState", () => {
