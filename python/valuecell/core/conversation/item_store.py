@@ -28,7 +28,8 @@ class ItemStore(ABC):
         offset: int = 0,
         role: Optional[Role] = None,
         task_id: Optional[str] = None,
-    ) -> List[ConversationItem]: ...
+    ) -> List[ConversationItem]:
+        ...
 
     @abstractmethod
     async def get_latest_item(
@@ -67,6 +68,7 @@ class InMemoryItemStore(ItemStore):
         role: Optional[Role] = None,
         task_id: Optional[str] = None,
     ) -> List[ConversationItem]:
+        """Return items filtered by conversation/task/role in insertion order."""
         if conversation_id is not None:
             items = list(self._items.get(conversation_id, []))
         else:
