@@ -241,11 +241,23 @@ class AgentOrchestrator:
 
         # Validate execution context exists
         if conversation_id not in self._execution_contexts:
-            failure = self.event_service.factory.system_failed(
-                conversation_id,
-                "No execution context found for this conversation. The conversation may have expired.",
-            )
-            yield await self.event_service.emit(failure)
+            # Planning interruptions keep pending requests in PlanService. If a
+            # pending request still exists but context is missing, fail fast to
+            # avoid silently dropping a planner checkpoint.
+            if self.plan_service.has_pending_request(conversation_id):
+                failure = self.event_service.factory.system_failed(
+                    conversation_id,
+                    "No execution context found for this conversation. The conversation may have expired.",
+                )
+                yield await self.event_service.emit(failure)
+                return
+
+            # Execution-stage waiting_input currently does not persist a local
+            # ExecutionContext. Continue by re-activating the conversation and
+            # treating the user message as a fresh request.
+            await self.conversation_service.activate(conversation_id)
+            async for response in self._handle_new_request(user_input):
+                yield response
             return
 
         context = self._execution_contexts[conversation_id]
