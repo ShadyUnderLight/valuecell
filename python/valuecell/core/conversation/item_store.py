@@ -28,6 +28,7 @@ class ItemStore(ABC):
         offset: int = 0,
         role: Optional[Role] = None,
         task_id: Optional[str] = None,
+        **kwargs,
     ) -> List[ConversationItem]: ...
 
     @abstractmethod
