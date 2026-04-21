@@ -216,6 +216,26 @@ class TestTaskManager:
             assert task.updated_at == waiting_time
 
     @pytest.mark.asyncio
+    async def test_wait_for_input_task_rejects_non_running_task(self):
+        """Test wait_for_input_task rejects tasks that are not running."""
+        manager = TaskManager()
+        task = Task(
+            task_id="test-task-123",
+            query="Test query",
+            conversation_id="conv-123",
+            user_id="user-123",
+            agent_name="test-agent",
+            status=TaskStatus.PENDING,
+        )
+        await manager._store.save_task(task)
+
+        result = await manager.wait_for_input_task("test-task-123")
+
+        assert result is False
+        task = await manager._get_task("test-task-123")
+        assert task.status == TaskStatus.PENDING
+
+    @pytest.mark.asyncio
     async def test_fail_task_success(self):
         """Test fail_task with valid running task."""
         manager = TaskManager()
