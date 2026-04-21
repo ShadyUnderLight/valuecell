@@ -302,14 +302,22 @@ class TaskExecutor:
                     logger.info(f"Task `{task.title}` ({task_id}) is finished.")
                     break
 
-            await self._task_service.complete_task(task_id)
-            completed = self._event_service.factory.task_completed(
-                conversation_id=conversation_id,
-                thread_id=thread_id,
-                task_id=task_id,
-                agent_name=task.agent_name,
-            )
-            yield await self._event_service.emit(completed)
+            completed_ok = await self._task_service.complete_task(task_id)
+            if completed_ok:
+                completed = self._event_service.factory.task_completed(
+                    conversation_id=conversation_id,
+                    thread_id=thread_id,
+                    task_id=task_id,
+                    agent_name=task.agent_name,
+                )
+                yield await self._event_service.emit(completed)
+            else:
+                current_task = await self._task_service.get_task(task_id)
+                logger.info(
+                    "Skipping task_completed emission for task {} with status {}",
+                    task_id,
+                    current_task.status if current_task else "unknown",
+                )
         except Exception as exc:
             await self._task_service.fail_task(task_id, str(exc))
             raise
@@ -422,6 +430,13 @@ class TaskExecutor:
                         await self._conversation_service.manager.update_task_component_status(
                             task_id=task.task_id,
                             status=TaskStatus.FAILED.value,
+                            error_reason=side_effect.reason,
+                        )
+                    if side_effect.kind == SideEffectKind.CANCEL_TASK:
+                        await self._task_service.cancel_task(task.task_id)
+                        await self._conversation_service.manager.update_task_component_status(
+                            task_id=task.task_id,
+                            status=TaskStatus.CANCELLED.value,
                             error_reason=side_effect.reason,
                         )
                 if route_result.done:

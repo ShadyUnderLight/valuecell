@@ -3,10 +3,17 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from a2a.types import TaskState, TaskStatus, TaskStatusUpdateEvent
 
 from valuecell.core.event.factory import ResponseFactory
+from valuecell.core.event.router import RouteResult, SideEffect, SideEffectKind
 from valuecell.core.task.executor import ScheduledTaskResultAccumulator, TaskExecutor
-from valuecell.core.task.models import ScheduleConfig, Task, TaskPattern
+from valuecell.core.task.models import (
+    ScheduleConfig,
+    Task,
+    TaskPattern,
+    TaskStatus as CoreTaskStatus,
+)
 from valuecell.core.task.service import TaskService
 from valuecell.core.types import (
     CommonResponseEvent,
@@ -34,6 +41,7 @@ class StubEventService:
 class StubConversationService:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str]] = []
+        self.manager = SimpleNamespace(update_task_component_status=AsyncMock())
 
     async def ensure_conversation(
         self,
@@ -51,6 +59,7 @@ def task_service() -> TaskService:
     svc.manager.start_task = AsyncMock(return_value=True)
     svc.manager.complete_task = AsyncMock(return_value=True)
     svc.manager.fail_task = AsyncMock(return_value=True)
+    svc.manager.cancel_task = AsyncMock(return_value=True)
     svc.manager.update_task = AsyncMock()
     return svc
 
@@ -381,3 +390,89 @@ async def test_execute_single_task_run_emits_result_component_when_no_events(
         == ComponentType.SCHEDULED_TASK_RESULT.value
         for r in emitted
     )
+
+
+@pytest.mark.asyncio
+async def test_execute_single_task_run_applies_cancel_side_effect(
+    task_service: TaskService,
+):
+    class FakeClient:
+        async def send_message(self, *args, **kwargs):
+            async def _events():
+                remote_task = SimpleNamespace(
+                    id="remote-1", status=SimpleNamespace(state=TaskState.submitted)
+                )
+                yield remote_task, None
+                yield remote_task, TaskStatusUpdateEvent(
+                    context_id="ctx-1",
+                    task_id="remote-1",
+                    final=True,
+                    status=TaskStatus(state=TaskState.canceled),
+                )
+
+            return _events()
+
+    class FakeConnections:
+        async def get_client(self, *_args, **_kwargs):
+            return FakeClient()
+
+    event_service = StubEventService()
+    event_service.route_task_status = AsyncMock(
+        return_value=RouteResult(
+            responses=[],
+            done=True,
+            side_effects=[SideEffect(kind=SideEffectKind.CANCEL_TASK, reason="stop")],
+        )
+    )
+    conversation_service = StubConversationService()
+    executor = TaskExecutor(
+        agent_connections=FakeConnections(),
+        task_service=task_service,
+        event_service=event_service,
+        conversation_service=conversation_service,
+    )
+    task = _make_task()
+
+    _ = [
+        resp
+        async for resp in executor._execute_single_task_run(
+            task, thread_id="thread", metadata={}
+        )
+    ]
+
+    task_service.manager.cancel_task.assert_awaited_once_with(task.task_id)
+    conversation_service.manager.update_task_component_status.assert_awaited_once_with(
+        task_id=task.task_id,
+        status=CoreTaskStatus.CANCELLED.value,
+        error_reason="stop",
+    )
+
+
+@pytest.mark.asyncio
+async def test_execute_task_skips_completed_event_when_complete_task_rejected(
+    monkeypatch: pytest.MonkeyPatch, task_service: TaskService
+):
+    event_service = StubEventService()
+    executor = TaskExecutor(
+        agent_connections=SimpleNamespace(),
+        task_service=task_service,
+        event_service=event_service,
+        conversation_service=StubConversationService(),
+    )
+
+    async def fake_single_run(task, thread_id, metadata):
+        if False:
+            yield  # pragma: no cover
+        return
+
+    monkeypatch.setattr(executor, "_execute_single_task_run", fake_single_run)
+    task_service.manager.complete_task = AsyncMock(return_value=False)
+    task_service.get_task = AsyncMock(
+        return_value=_make_task(status=CoreTaskStatus.CANCELLED)
+    )
+
+    task = _make_task()
+    emitted = [resp async for resp in executor.execute_task(task, "thread")]
+
+    assert not any(r.__class__.__name__ == "TaskCompletedResponse" for r in emitted)
+    task_service.manager.complete_task.assert_awaited_once_with(task.task_id)
