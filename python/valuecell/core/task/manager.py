@@ -48,10 +48,21 @@ class TaskManager:
         """Complete task"""
         async with self._lock:
             task = await self._get_task(task_id)
-            if not task or task.is_finished():
+            if not task or task.status != TaskStatus.RUNNING:
                 return False
 
             task.complete()
+            await self._store.save_task(task)
+            return True
+
+    async def wait_for_input_task(self, task_id: str) -> bool:
+        """Mark task as waiting for additional user input."""
+        async with self._lock:
+            task = await self._get_task(task_id)
+            if not task or task.status != TaskStatus.RUNNING:
+                return False
+
+            task.wait_for_input()
             await self._store.save_task(task)
             return True
 

@@ -439,6 +439,16 @@ class TaskExecutor:
                             status=TaskStatus.CANCELLED.value,
                             error_reason=side_effect.reason,
                         )
+                    if side_effect.kind == SideEffectKind.WAIT_FOR_INPUT:
+                        await self._task_service.wait_for_input_task(task.task_id)
+                        await self._conversation_service.manager.update_task_component_status(
+                            task_id=task.task_id,
+                            status=TaskStatus.WAITING_INPUT.value,
+                            error_reason=side_effect.reason,
+                        )
+                        await self._conversation_service.require_user_input(
+                            task.conversation_id
+                        )
                 if route_result.done:
                     return
                 continue

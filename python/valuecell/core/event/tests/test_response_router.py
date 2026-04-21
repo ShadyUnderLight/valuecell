@@ -30,6 +30,7 @@ class TestSideEffectKind:
         """Test SideEffectKind enum values."""
         assert SideEffectKind.FAIL_TASK.value == "fail_task"
         assert SideEffectKind.CANCEL_TASK.value == "cancel_task"
+        assert SideEffectKind.WAIT_FOR_INPUT.value == "wait_for_input"
 
 
 class TestSideEffect:
@@ -243,6 +244,35 @@ class TestHandleStatusUpdate:
         assert len(result.side_effects) == 1
         assert result.side_effects[0].kind == SideEffectKind.CANCEL_TASK
         assert result.side_effects[0].reason == "User cancelled"
+
+    async def test_input_required_state_with_empty_message(self):
+        """Test input-required state keeps an empty message as empty reason."""
+        response_factory = MagicMock()
+        task = Task(
+            task_id="task-123",
+            conversation_id="conv-123",
+            name="Test Task",
+            query="Test query",
+            user_id="user-123",
+            agent_name="test-agent",
+        )
+        thread_id = "thread-123"
+        empty_message = Message(message_id="m2", role=Role.agent, parts=[])
+        event = TaskStatusUpdateEvent(
+            context_id="ctx-123",
+            task_id="task-123",
+            final=True,
+            status=TaskStatus(state=TaskState.input_required, message=empty_message),
+        )
+
+        result = await handle_status_update(response_factory, task, thread_id, event)
+
+        assert isinstance(result, RouteResult)
+        assert result.responses == []
+        assert result.done is True
+        assert len(result.side_effects) == 1
+        assert result.side_effects[0].kind == SideEffectKind.WAIT_FOR_INPUT
+        assert result.side_effects[0].reason == ""
 
     async def test_no_metadata(self):
         """Test handling event with no metadata."""

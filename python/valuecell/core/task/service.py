@@ -36,6 +36,9 @@ class TaskService:
     async def complete_task(self, task_id: str) -> bool:
         return await self._manager.complete_task(task_id)
 
+    async def wait_for_input_task(self, task_id: str) -> bool:
+        return await self._manager.wait_for_input_task(task_id)
+
     async def fail_task(self, task_id: str, reason: str) -> bool:
         return await self._manager.fail_task(task_id, reason)
 
