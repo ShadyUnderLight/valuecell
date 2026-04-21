@@ -27,7 +27,7 @@ class ItemStore(ABC):
         limit: Optional[int] = None,
         offset: int = 0,
         role: Optional[Role] = None,
-        **kwargs,
+        task_id: Optional[str] = None,
     ) -> List[ConversationItem]: ...
 
     @abstractmethod
@@ -65,8 +65,9 @@ class InMemoryItemStore(ItemStore):
         limit: Optional[int] = None,
         offset: int = 0,
         role: Optional[Role] = None,
-        **kwargs,
+        task_id: Optional[str] = None,
     ) -> List[ConversationItem]:
+        """Return items filtered by conversation/task/role in insertion order."""
         if conversation_id is not None:
             items = list(self._items.get(conversation_id, []))
         else:
@@ -76,6 +77,8 @@ class InMemoryItemStore(ItemStore):
                 items.extend(conv_items)
         if role is not None:
             items = [m for m in items if m.role == role]
+        if task_id is not None:
+            items = [m for m in items if m.task_id == task_id]
         if offset:
             items = items[offset:]
         if limit is not None:
@@ -193,9 +196,9 @@ class SQLiteItemStore(ItemStore):
         role: Optional[Role] = None,
         event: Optional[ConversationItemEvent] = None,
         component_type: Optional[str] = None,
+        task_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
-        **kwargs,
     ) -> List[ConversationItem]:
         await self._ensure_initialized()
         params = []
@@ -212,6 +215,9 @@ class SQLiteItemStore(ItemStore):
         if component_type is not None:
             where_clauses.append("json_extract(payload, '$.component_type') = ?")
             params.append(component_type)
+        if task_id is not None:
+            where_clauses.append("task_id = ?")
+            params.append(task_id)
 
         where = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
