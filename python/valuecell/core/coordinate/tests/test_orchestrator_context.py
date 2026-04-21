@@ -11,7 +11,7 @@ from valuecell.core.coordinate.orchestrator import (
     ExecutionContext,
 )
 from valuecell.core.event.factory import ResponseFactory
-from valuecell.core.types import SystemResponseEvent
+from valuecell.core.types import SystemResponseEvent, UserInput, UserInputMetadata
 
 
 class DummyEventService:
@@ -217,3 +217,50 @@ async def test_cleanup_expired_contexts(orchestrator):
     assert "conv" in bundle.conversation_service.activated
     assert "conv" in bundle.plan_service.cleared
     assert "conv" not in orch._execution_contexts
+
+
+@pytest.mark.asyncio
+async def test_conversation_continuation_without_context_falls_back_to_new_request(
+    orchestrator,
+):
+    orch, bundle = orchestrator
+    user_input = UserInput(
+        query="yes, continue",
+        target_agent_name="agent",
+        meta=UserInputMetadata(conversation_id="conv", user_id="user"),
+    )
+
+    expected = bundle.event_service.factory.done("conv")
+
+    async def fake_new_request(_user_input):
+        yield expected
+
+    orch._handle_new_request = fake_new_request  # type: ignore[method-assign]
+
+    outputs = [
+        resp async for resp in orch._handle_conversation_continuation(user_input)
+    ]
+
+    assert outputs == [expected]
+    assert "conv" in bundle.conversation_service.activated
+
+
+@pytest.mark.asyncio
+async def test_conversation_continuation_without_context_still_fails_for_planning_pending(
+    orchestrator,
+):
+    orch, bundle = orchestrator
+    bundle.plan_service.pending = True
+
+    user_input = UserInput(
+        query="clarification",
+        target_agent_name="agent",
+        meta=UserInputMetadata(conversation_id="conv", user_id="user"),
+    )
+
+    outputs = [
+        resp async for resp in orch._handle_conversation_continuation(user_input)
+    ]
+
+    assert len(outputs) == 1
+    assert outputs[0].event == SystemResponseEvent.SYSTEM_FAILED
