@@ -403,11 +403,14 @@ async def test_execute_single_task_run_applies_cancel_side_effect(
                     id="remote-1", status=SimpleNamespace(state=TaskState.submitted)
                 )
                 yield remote_task, None
-                yield remote_task, TaskStatusUpdateEvent(
-                    context_id="ctx-1",
-                    task_id="remote-1",
-                    final=True,
-                    status=TaskStatus(state=TaskState.canceled),
+                yield (
+                    remote_task,
+                    TaskStatusUpdateEvent(
+                        context_id="ctx-1",
+                        task_id="remote-1",
+                        final=True,
+                        status=TaskStatus(state=TaskState.canceled),
+                    ),
                 )
 
             return _events()
