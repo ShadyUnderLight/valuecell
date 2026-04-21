@@ -66,6 +66,7 @@ class InMemoryItemStore(ItemStore):
         offset: int = 0,
         role: Optional[Role] = None,
         task_id: Optional[str] = None,
+        **kwargs,
     ) -> List[ConversationItem]:
         """Return items filtered by conversation/task/role in insertion order."""
         if conversation_id is not None:
