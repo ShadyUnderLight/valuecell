@@ -28,8 +28,7 @@ class ItemStore(ABC):
         offset: int = 0,
         role: Optional[Role] = None,
         task_id: Optional[str] = None,
-    ) -> List[ConversationItem]:
-        ...
+    ) -> List[ConversationItem]: ...
 
     @abstractmethod
     async def get_latest_item(
