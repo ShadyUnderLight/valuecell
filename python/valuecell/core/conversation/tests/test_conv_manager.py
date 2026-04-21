@@ -2,16 +2,20 @@
 Unit tests for valuecell.core.conversation.manager module
 """
 
-from datetime import datetime
 import json
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from valuecell.core.conversation.manager import ConversationManager
 from valuecell.core.conversation.models import Conversation, ConversationStatus
-from valuecell.core.types import ConversationItem, Role, NotifyResponseEvent
-from valuecell.core.types import ComponentType
+from valuecell.core.types import (
+    ComponentType,
+    ConversationItem,
+    NotifyResponseEvent,
+    Role,
+)
 
 
 class TestConversationManager:
@@ -736,6 +740,51 @@ class TestConversationManager:
         await manager.update_task_component_status("task-2", "failed", "boom")
 
         manager.item_store.save_item.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_update_task_component_status_skips_items_from_other_tasks(self):
+        """Items from other tasks should be ignored even if store filtering regresses."""
+        manager = ConversationManager()
+
+        target_payload = {
+            "component_type": ComponentType.SCHEDULED_TASK_CONTROLLER,
+            "content": json.dumps({"task_id": "task-1", "task_title": "A"}),
+        }
+        other_payload = {
+            "component_type": ComponentType.SCHEDULED_TASK_CONTROLLER,
+            "content": json.dumps({"task_id": "task-2", "task_title": "B"}),
+        }
+        target_item = ConversationItem(
+            item_id="item-target",
+            role=Role.AGENT,
+            event=NotifyResponseEvent.MESSAGE,
+            conversation_id="conv-1",
+            payload=json.dumps(target_payload),
+            metadata="{}",
+            task_id="task-1",
+        )
+        other_item = ConversationItem(
+            item_id="item-other",
+            role=Role.AGENT,
+            event=NotifyResponseEvent.MESSAGE,
+            conversation_id="conv-2",
+            payload=json.dumps(other_payload),
+            metadata="{}",
+            task_id="task-2",
+        )
+
+        manager.item_store.get_items = AsyncMock(return_value=[target_item, other_item])
+        manager.item_store.save_item = AsyncMock()
+
+        await manager.update_task_component_status("task-1", "failed", "boom")
+
+        manager.item_store.save_item.assert_awaited_once()
+        saved_item = manager.item_store.save_item.call_args.args[0]
+        assert saved_item.item_id == "item-target"
+        parsed = json.loads(saved_item.payload)
+        inner = json.loads(parsed.get("content"))
+        assert inner.get("task_status") == "failed"
+        assert json.loads(other_item.payload)["content"] == other_payload["content"]
 
     @pytest.mark.asyncio
     async def test_update_task_component_status_skips_invalid_payload(self):

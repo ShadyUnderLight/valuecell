@@ -5,7 +5,7 @@ Unit tests for valuecell.core.conversation.item_store module - InMemoryItemStore
 import pytest
 
 from valuecell.core.conversation.item_store import InMemoryItemStore
-from valuecell.core.types import ConversationItem, Role, NotifyResponseEvent
+from valuecell.core.types import ConversationItem, NotifyResponseEvent, Role
 
 
 class TestInMemoryItemStore:
@@ -203,6 +203,35 @@ class TestInMemoryItemStore:
         result = await store.get_items("conv-123", role=Role.AGENT)
         assert len(result) == 2
         assert result == [agent_item1, agent_item2]
+
+    @pytest.mark.asyncio
+    async def test_get_items_with_task_id_filter(self):
+        """Test getting items filtered by task_id."""
+        store = InMemoryItemStore()
+
+        task1_item = ConversationItem(
+            item_id="task1-item",
+            role=Role.AGENT,
+            event=NotifyResponseEvent.MESSAGE,
+            conversation_id="conv-123",
+            task_id="task-1",
+            payload="Task 1 item",
+        )
+        task2_item = ConversationItem(
+            item_id="task2-item",
+            role=Role.AGENT,
+            event=NotifyResponseEvent.MESSAGE,
+            conversation_id="conv-456",
+            task_id="task-2",
+            payload="Task 2 item",
+        )
+
+        await store.save_item(task1_item)
+        await store.save_item(task2_item)
+
+        result = await store.get_items(conversation_id=None, task_id="task-1")
+
+        assert result == [task1_item]
 
     @pytest.mark.asyncio
     async def test_get_items_empty_conversation(self):

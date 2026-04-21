@@ -252,6 +252,9 @@ class ConversationManager:
         """
         items = await self.item_store.get_items(task_id=task_id)
         for item in items:
+            if item.task_id != task_id:
+                continue
+
             # Check if this is a scheduled_task_controller component
             if not item.payload:
                 continue

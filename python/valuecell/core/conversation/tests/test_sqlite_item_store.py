@@ -2,6 +2,7 @@ import os
 import tempfile
 
 import pytest
+
 from valuecell.core.conversation.item_store import SQLiteItemStore
 from valuecell.core.types import ConversationItem, Role, SystemResponseEvent
 
@@ -188,6 +189,14 @@ async def test_sqlite_item_store_filters_and_pagination():
         # filter by component_type (json_extract on payload)
         cards = await store.get_items("s2", component_type="card")
         assert [i.item_id for i in cards] == ["a2"]
+
+        # filter by task_id
+        items[1].task_id = "task-2"
+        items[2].task_id = "task-3"
+        await store.save_item(items[1])
+        await store.save_item(items[2])
+        task2_items = await store.get_items("s2", task_id="task-2")
+        assert [i.item_id for i in task2_items] == ["a2"]
 
         # limit & offset: get first item only, then skip first
         first = await store.get_items("s2", limit=1)
