@@ -9,10 +9,7 @@ from loguru import logger
 from valuecell.core.agent.responses import EventPredicates
 from valuecell.core.event.factory import ResponseFactory
 from valuecell.core.task.models import Task
-from valuecell.core.types import (
-    BaseResponse,
-    CommonResponseEvent,
-)
+from valuecell.core.types import BaseResponse, CommonResponseEvent
 
 
 class SideEffectKind(Enum):
@@ -25,6 +22,7 @@ class SideEffectKind(Enum):
 
     FAIL_TASK = "fail_task"
     CANCEL_TASK = "cancel_task"
+    WAIT_FOR_INPUT = "wait_for_input"
 
 
 @dataclass
@@ -74,7 +72,6 @@ async def handle_status_update(
         return RouteResult(responses)
 
     if state == TaskState.failed:
-        # Produce a task_failed response and request the task be marked failed
         err_msg = get_message_text(event.status.message)
         responses.append(
             response_factory.task_failed(
@@ -101,16 +98,24 @@ async def handle_status_update(
             ],
         )
 
+    if state == TaskState.input_required:
+        wait_reason = get_message_text(event.status.message, "")
+        return RouteResult(
+            responses=responses,
+            done=True,
+            side_effects=[
+                SideEffect(kind=SideEffectKind.WAIT_FOR_INPUT, reason=wait_reason)
+            ],
+        )
+
     if not event.metadata:
         return RouteResult(responses)
 
     response_event = event.metadata.get("response_event")
 
-    # Tool call events
     if state == TaskState.working and EventPredicates.is_tool_call(response_event):
         tool_call_id = event.metadata.get("tool_call_id", "unknown_tool_call_id")
         tool_name = event.metadata.get("tool_name", "unknown_tool_name")
-
         tool_result = None
         if "tool_result" in event.metadata and event.metadata["tool_result"]:
             tool_result = event.metadata.get("tool_result")
@@ -128,7 +133,6 @@ async def handle_status_update(
         )
         return RouteResult(responses)
 
-    # Reasoning messages
     content = get_message_text(event.status.message, "")
     if state == TaskState.working and EventPredicates.is_reasoning(response_event):
         responses.append(
@@ -143,7 +147,6 @@ async def handle_status_update(
         )
         return RouteResult(responses)
 
-    # component generator
     if (
         state == TaskState.working
         and response_event == CommonResponseEvent.COMPONENT_GENERATOR
@@ -163,7 +166,6 @@ async def handle_status_update(
         )
         return RouteResult(responses)
 
-    # general messages
     if state == TaskState.working and EventPredicates.is_message(response_event):
         responses.append(
             response_factory.message_response_general(

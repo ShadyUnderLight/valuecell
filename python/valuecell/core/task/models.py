@@ -109,6 +109,11 @@ class Task(BaseModel):
         self.completed_at = datetime.now()
         self.updated_at = datetime.now()
 
+    def wait_for_input(self) -> None:
+        """Pause the task pending additional user input."""
+        self.status = TaskStatus.WAITING_INPUT
+        self.updated_at = datetime.now()
+
     def fail(self, error_message: str) -> None:
         """Mark task as failed"""
         self.status = TaskStatus.FAILED

@@ -11,6 +11,7 @@ def manager() -> AsyncMock:
     m.update_task = AsyncMock()
     m.start_task = AsyncMock(return_value=True)
     m.complete_task = AsyncMock(return_value=True)
+    m.wait_for_input_task = AsyncMock(return_value=True)
     m.fail_task = AsyncMock(return_value=True)
     m.cancel_task = AsyncMock(return_value=True)
     m.cancel_conversation_tasks = AsyncMock(return_value=2)
@@ -38,16 +39,18 @@ async def test_update_task(manager: AsyncMock):
 
 
 @pytest.mark.asyncio
-async def test_start_complete_fail_cancel(manager: AsyncMock):
+async def test_start_complete_wait_fail_cancel(manager: AsyncMock):
     service = TaskService(manager=manager)
 
     assert await service.start_task("task") is True
     assert await service.complete_task("task") is True
+    assert await service.wait_for_input_task("task") is True
     assert await service.fail_task("task", "reason") is True
     assert await service.cancel_task("task") is True
 
     manager.start_task.assert_awaited_once_with("task")
     manager.complete_task.assert_awaited_once_with("task")
+    manager.wait_for_input_task.assert_awaited_once_with("task")
     manager.fail_task.assert_awaited_once_with("task", "reason")
     manager.cancel_task.assert_awaited_once_with("task")
 

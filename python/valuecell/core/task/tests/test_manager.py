@@ -173,6 +173,49 @@ class TestTaskManager:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_complete_task_waiting_input(self):
+        """Test complete_task rejects waiting_input tasks."""
+        manager = TaskManager()
+        task = Task(
+            task_id="test-task-123",
+            query="Test query",
+            conversation_id="conv-123",
+            user_id="user-123",
+            agent_name="test-agent",
+            status=TaskStatus.WAITING_INPUT,
+        )
+        await manager._store.save_task(task)
+
+        result = await manager.complete_task("test-task-123")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_wait_for_input_task_success(self):
+        """Test wait_for_input_task with valid running task."""
+        manager = TaskManager()
+        task = Task(
+            task_id="test-task-123",
+            query="Test query",
+            conversation_id="conv-123",
+            user_id="user-123",
+            agent_name="test-agent",
+            status=TaskStatus.RUNNING,
+        )
+        await manager._store.save_task(task)
+
+        with patch("valuecell.core.task.models.datetime") as mock_datetime:
+            waiting_time = datetime(2023, 1, 1, 12, 5, 0)
+            mock_datetime.now.return_value = waiting_time
+
+            result = await manager.wait_for_input_task("test-task-123")
+
+            assert result is True
+            task = await manager._get_task("test-task-123")
+            assert task.status == TaskStatus.WAITING_INPUT
+            assert task.completed_at is None
+            assert task.updated_at == waiting_time
+
+    @pytest.mark.asyncio
     async def test_fail_task_success(self):
         """Test fail_task with valid running task."""
         manager = TaskManager()

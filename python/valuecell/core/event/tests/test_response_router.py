@@ -30,6 +30,7 @@ class TestSideEffectKind:
         """Test SideEffectKind enum values."""
         assert SideEffectKind.FAIL_TASK.value == "fail_task"
         assert SideEffectKind.CANCEL_TASK.value == "cancel_task"
+        assert SideEffectKind.WAIT_FOR_INPUT.value == "wait_for_input"
 
 
 class TestSideEffect:
