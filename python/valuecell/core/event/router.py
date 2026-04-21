@@ -24,6 +24,7 @@ class SideEffectKind(Enum):
     """
 
     FAIL_TASK = "fail_task"
+    CANCEL_TASK = "cancel_task"
 
 
 @dataclass
@@ -88,6 +89,16 @@ async def handle_status_update(
             responses=responses,
             done=True,
             side_effects=[SideEffect(kind=SideEffectKind.FAIL_TASK, reason=err_msg)],
+        )
+
+    if state == TaskState.canceled:
+        cancel_reason = get_message_text(event.status.message, "")
+        return RouteResult(
+            responses=responses,
+            done=True,
+            side_effects=[
+                SideEffect(kind=SideEffectKind.CANCEL_TASK, reason=cancel_reason)
+            ],
         )
 
     if not event.metadata:

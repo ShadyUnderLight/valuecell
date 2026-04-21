@@ -29,6 +29,7 @@ class TestSideEffectKind:
     def test_enum_values(self):
         """Test SideEffectKind enum values."""
         assert SideEffectKind.FAIL_TASK.value == "fail_task"
+        assert SideEffectKind.CANCEL_TASK.value == "cancel_task"
 
 
 class TestSideEffect:
@@ -211,6 +212,37 @@ class TestHandleStatusUpdate:
         assert result.side_effects[0].kind == SideEffectKind.FAIL_TASK
         # Should extract text from complex message
         assert "Complex error" in result.side_effects[0].reason
+
+    async def test_canceled_state(self):
+        """Test handling canceled task state."""
+        response_factory = MagicMock()
+        task = Task(
+            task_id="task-123",
+            conversation_id="conv-123",
+            name="Test Task",
+            query="Test query",
+            user_id="user-123",
+            agent_name="test-agent",
+        )
+        thread_id = "thread-123"
+        m = Message(
+            message_id="m1", role=Role.agent, parts=[TextPart(text="User cancelled")]
+        )
+        event = TaskStatusUpdateEvent(
+            context_id="ctx-123",
+            task_id="task-123",
+            final=True,
+            status=TaskStatus(state=TaskState.canceled, message=m),
+        )
+
+        result = await handle_status_update(response_factory, task, thread_id, event)
+
+        assert isinstance(result, RouteResult)
+        assert result.responses == []
+        assert result.done is True
+        assert len(result.side_effects) == 1
+        assert result.side_effects[0].kind == SideEffectKind.CANCEL_TASK
+        assert result.side_effects[0].reason == "User cancelled"
 
     async def test_no_metadata(self):
         """Test handling event with no metadata."""
